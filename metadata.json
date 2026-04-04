@@ -1,0 +1,7 @@
+{
+  "name": "Okai Capital - Investimentos em Fundos",
+  "description": "Uma plataforma de investimentos de alta performance com dashboard intuitivo, marketplace de ativos e programa de indicações exclusivo.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
