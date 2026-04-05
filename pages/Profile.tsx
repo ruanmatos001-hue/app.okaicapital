@@ -1,8 +1,50 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const Profile: React.FC = () => {
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user, refreshProfile } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) {
+      return;
+    }
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}-${Math.random()}.${fileExt}`;
+
+    setUploading(true);
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Erro ao fazer upload da imagem:', uploadError);
+      setUploading(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', user.id);
+
+    await refreshProfile();
+    setUploading(false);
+  };
+
+  const handleEditClick = () => {
+    if (fileInputRef.current && !uploading) {
+      fileInputRef.current.click();
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in-up md:max-w-4xl mx-auto">
@@ -15,13 +57,26 @@ const Profile: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 bg-[#0a0f0e] border border-white/5 p-8 sm:p-10">
         <div className="relative">
-          <img 
-            src={profile?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&h=200&auto=format&fit=crop"} 
-            alt="User Profile" 
-            className="w-28 h-28 object-cover border border-white/20 grayscale hover:grayscale-0 transition-all duration-500"
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+            accept="image/*"
           />
-          <button className="absolute -bottom-3 -right-3 w-8 h-8 bg-primary text-[#0a0f0e] border border-[#0a0f0e] flex items-center justify-center hover:scale-110 transition-transform">
-            <span className="material-symbols-outlined text-[1rem]">edit</span>
+          <img 
+            src={profile?.avatar_url || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"} 
+            alt="User Profile" 
+            className={`w-28 h-28 object-cover border border-white/20 grayscale hover:grayscale-0 transition-all duration-500 ${uploading ? 'opacity-50 blur-sm' : ''}`}
+          />
+          <button 
+            onClick={handleEditClick}
+            disabled={uploading}
+            className="absolute -bottom-3 -right-3 w-8 h-8 bg-primary text-[#0a0f0e] border border-[#0a0f0e] flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+          >
+            <span className="material-symbols-outlined text-[1rem]">
+              {uploading ? 'hourglass_empty' : 'edit'}
+            </span>
           </button>
         </div>
         

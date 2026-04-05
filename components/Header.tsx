@@ -52,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
             <p className="text-[10px] text-primary uppercase tracking-wider font-bold">{profile?.tipo_investidor || 'Investidor Pro'}</p>
           </div>
           <img 
-            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100&h=100&auto=format&fit=crop" 
+            src={profile?.avatar_url || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"} 
             alt="Profile" 
             className="size-9 rounded-full border-2 border-primary/20 object-cover"
           />
