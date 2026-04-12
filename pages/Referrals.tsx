@@ -95,7 +95,7 @@ const Referrals: React.FC = () => {
                   <div className="relative">
                     <input 
                       readOnly 
-                      value={`okai.capital/p/usr_${user?.id?.substring(0, 5) || 'demo'}`} 
+                      value={`https://okaicapital.com/p/usr_${user?.id?.substring(0, 5) || 'demo'}`} 
                       className="w-full bg-[#0a0f0e] border border-white/10 p-4 text-xs font-mono text-slate-400 focus:outline-none"
                     />
                     <button className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2">
@@ -105,12 +105,21 @@ const Referrals: React.FC = () => {
 
                   <div className="bg-white p-6 flex flex-col items-center justify-center gap-4">
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=okai.capital/p/usr_${user?.id?.substring(0, 5) || 'demo'}`} 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://okaicapital.com/p/usr_${user?.id?.substring(0, 5) || 'demo'}`} 
                       alt="QR Code" 
                       className="w-32 h-32"
                     />
                   </div>
                   <p className="text-[10px] text-center text-slate-500 uppercase tracking-widest font-bold">Apresente este QR</p>
+
+                  <a 
+                    href={`https://wa.me/?text=Abra%20sua%20conta%20na%20Okai%20Capital%20usando%20meu%20c%C3%B3digo%20de%20indica%C3%A7%C3%A3o%3A%20usr_${user?.id?.substring(0, 5) || 'demo'}%0A%0AAcesse%3A%20https%3A%2F%2Fokaicapital.com%2F`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full flex items-center justify-center gap-2 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 border border-[#25D366]/20 p-3 text-xs font-bold uppercase tracking-widest transition-colors"
+                  >
+                    <span>Compartilhar via WhatsApp</span>
+                  </a>
 
                   <div className="border border-primary/20 p-4">
                     <p className="text-[10px] text-slate-400 leading-relaxed font-bold tracking-wide">

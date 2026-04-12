@@ -20,6 +20,10 @@ export interface Profile {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  onboarding_completed?: boolean;
+  questionario_valor_investido?: string;
+  questionario_prazo?: string;
+  questionario_formacao?: string;
 }
 
 export interface Carteira {

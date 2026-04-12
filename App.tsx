@@ -6,8 +6,10 @@ import Referrals from './pages/Referrals';
 import Profile from './pages/Profile';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
+import HedgeFundManager from './pages/HedgeFundManager';
 import BottomNav from './components/BottomNav';
 import Header from './components/Header';
+import SuitabilityForm from './components/SuitabilityForm';
 import { NavigationTab } from './types';
 
 type AppScreen = 'landing' | 'login' | 'cadastro' | 'app';
@@ -16,6 +18,11 @@ const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
   const [screen, setScreen] = useState<AppScreen>('landing');
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
+
+  // Check for specialized URL path like /headgefundmanager
+  if (window.location.pathname === '/headgefundmanager') {
+    return <HedgeFundManager />;
+  }
 
   useEffect(() => {
     if (user) {
@@ -63,10 +70,13 @@ const AppContent: React.FC = () => {
     return (
       <div className="min-h-screen bg-background-dark text-slate-100 flex flex-col pb-24 md:pb-0 font-display">
         <Header activeTab={activeTab} onTabChange={setActiveTab} />
-        <main className="flex-grow w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-4 sm:py-8 transition-opacity duration-300">
+        <main className="flex-grow w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-4 sm:py-8 transition-opacity duration-300 relative z-10">
           {renderPage()}
         </main>
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        {/* Onboarding Overlay Component */}
+        <SuitabilityForm />
       </div>
     );
   }

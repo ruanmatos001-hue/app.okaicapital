@@ -19,6 +19,7 @@ interface SignUpData {
   nome: string;
   cpf: string;
   telefone: string;
+  codigo_indicacao?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: null };
   };
 
-  const signUp = async ({ email, password, nome, cpf, telefone }: SignUpData) => {
+  const signUp = async ({ email, password, nome, cpf, telefone, codigo_indicacao }: SignUpData) => {
     // Verificar se CPF já existe
     const { data: existingCpf } = await supabase
       .from('profiles')
@@ -85,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           nome,
           cpf: cpf.replace(/\D/g, ''),
           telefone: telefone.replace(/\D/g, ''),
+          codigo_indicacao,
         },
       },
     });

@@ -55,6 +55,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login', onBack }) =>
   const [cadTel, setCadTel] = useState('');
   const [cadPass, setCadPass] = useState('');
   const [cadPassConf, setCadPassConf] = useState('');
+  const [cadIndicacao, setCadIndicacao] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +84,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login', onBack }) =>
       nome: cadNome,
       cpf: cadCPF,
       telefone: cadTel,
+      codigo_indicacao: cadIndicacao,
     });
 
     if (error) {
@@ -90,7 +92,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login', onBack }) =>
       else setError(error);
     } else {
       setSuccess('Solicitação recebida. Verifique sua caixa de entrada.');
-      setCadNome(''); setCadEmail(''); setCadCPF(''); setCadTel(''); setCadPass(''); setCadPassConf('');
+      setCadNome(''); setCadEmail(''); setCadCPF(''); setCadTel(''); setCadPass(''); setCadPassConf(''); setCadIndicacao('');
     }
     setLoading(false);
   };
@@ -232,6 +234,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login', onBack }) =>
                   type="password" required
                   value={cadPassConf} onChange={e => setCadPassConf(e.target.value)}
                   className="w-full bg-[#050807] border border-white/10 text-white p-3 focus:outline-none focus:border-primary transition-colors text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest block mb-2">Código de Indicação (Opcional)</label>
+                <input
+                  type="text"
+                  value={cadIndicacao} onChange={e => setCadIndicacao(e.target.value)}
+                  placeholder="Ex: usr_abcde"
+                  className="w-full bg-[#050807] border border-white/10 text-white p-3 focus:outline-none focus:border-primary transition-colors text-sm font-mono"
                 />
               </div>
               

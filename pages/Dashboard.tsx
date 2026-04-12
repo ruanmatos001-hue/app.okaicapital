@@ -4,7 +4,7 @@ import { NavigationTab } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, UsuarioCarteira } from '../lib/supabase';
 
-const chartData = [
+const MOCK_CHART_DATA = [
   { name: 'JAN', value: 0 },
   { name: 'FEV', value: 0 },
   { name: 'MAR', value: 0 },
@@ -21,6 +21,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   const { user } = useAuth();
   const [portfolios, setPortfolios] = useState<UsuarioCarteira[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState<any[]>(MOCK_CHART_DATA);
 
   useEffect(() => {
     const carregarDados = async () => {
@@ -38,6 +39,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       if (!error && data) {
         setPortfolios(data as UsuarioCarteira[]);
       }
+
+      // Buscar gráfico dinâmico
+      const { data: rentData } = await supabase
+        .from('rentabilidade_usuario_mensal')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .order('ano', { ascending: true })
+        .order('mes', { ascending: true });
+
+      if (rentData && rentData.length > 0) {
+        const monthNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+        const grouped = {};
+        rentData.forEach(r => {
+           let key = `${r.ano}-${r.mes}`;
+           if(!grouped[key]) grouped[key] = { name: monthNames[r.mes - 1] + '/' + String(r.ano).slice(-2), value: 0 };
+           grouped[key].value += r.saldo_fim || 0;
+        });
+        const dynamicChart = Object.values(grouped);
+        // Only get last 8 periods
+        setChartData(dynamicChart.slice(-8));
+      }
+
       setLoading(false);
     };
 
@@ -45,10 +68,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   }, [user]);
 
   const saldoTotal = portfolios.reduce((acc, curr) => acc + (curr.saldo_atual || 0), 0);
-  const lucroAcumulado = portfolios.reduce((acc, curr) => acc + (curr.total_rendimento || 0), 0);
-  const percentualMedio = portfolios.length > 0
-    ? portfolios.reduce((acc, curr) => acc + (curr.percentual_rendimento || 0), 0) / portfolios.length
-    : 0;
+  const aportadoTotal = portfolios.reduce((acc, curr) => acc + (curr.total_investido || 0), 0);
+  const retiradoTotal = portfolios.reduce((acc, curr) => acc + (curr.total_retirado || 0), 0);
+  const lucroAcumulado = saldoTotal - aportadoTotal + retiradoTotal;
+  const percentualMedio = aportadoTotal > 0 
+    ? (lucroAcumulado / aportadoTotal) * 100 
+    : portfolios.reduce((acc, curr) => acc + (curr.percentual_rendimento || 0), 0) / (portfolios.length || 1);
 
   const formatMoney = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -85,16 +110,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
 
           <div className="flex flex-wrap gap-6 border-t border-white/5 pt-6 mt-6">
             <div>
-              <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-1 block">Rentabilidade Acumulada</span>
+              <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-1 block">Rentabilidade Acumulada (Monetária)</span>
               <span className={`text-xl font-bold ${lucroAcumulado >= 0 ? 'text-primary' : 'text-rose-500'}`}>
                 {lucroAcumulado >= 0 ? '+' : ''}{formatMoney(lucroAcumulado)}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-1 block">Performance Média</span>
-              <span className={`text-xl font-bold ${percentualMedio >= 0 ? 'text-primary' : 'text-rose-500'}`}>
-                {percentualMedio >= 0 ? '+' : ''}{percentualMedio.toFixed(2)}%
-              </span>
+              <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-1 block">Rentabilidade Acumulada (%)</span>
+              <div className="flex items-baseline gap-2">
+                  <span className={`text-xl font-bold ${lucroAcumulado >= 0 ? 'text-primary' : 'text-rose-500'}`}>
+                    {lucroAcumulado >= 0 ? '+' : ''}{aportadoTotal > 0 ? ((lucroAcumulado / aportadoTotal) * 100).toFixed(2) : '0.00'}%
+                  </span>
+              </div>
             </div>
           </div>
         </div>
@@ -179,8 +206,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
                   </div>
                   <div className="text-right">
                     <p className="text-white font-bold text-sm">{formatMoney(p.saldo_atual || 0)}</p>
-                    <p className={`text-[10px] font-black tracking-widest ${(p.percentual_rendimento || 0) >= 0 ? 'text-primary' : 'text-rose-500'}`}>
-                      {(p.percentual_rendimento || 0) >= 0 ? '+' : ''}{(p.percentual_rendimento || 0).toFixed(2)}%
+                    <p className={`text-[10px] font-black tracking-widest ${(((p.saldo_atual || 0) - (p.total_investido || 0)) >= 0) ? 'text-primary' : 'text-rose-500'}`}>
+                      {(((p.saldo_atual || 0) - (p.total_investido || 0)) >= 0) ? '+' : ''}{(p.total_investido && p.total_investido > 0 ? ((((p.saldo_atual || 0) - p.total_investido) / p.total_investido) * 100).toFixed(2) : (p.percentual_rendimento || 0).toFixed(2))}%
                     </p>
                   </div>
                 </div>
