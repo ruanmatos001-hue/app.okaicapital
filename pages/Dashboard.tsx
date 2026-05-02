@@ -1,17 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { NavigationTab } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, UsuarioCarteira } from '../lib/supabase';
-
-const MOCK_CHART_DATA = [
-  { name: 'JAN', value: 0 },
-  { name: 'FEV', value: 0 },
-  { name: 'MAR', value: 0 },
-  { name: 'ABR', value: 0 },
-  { name: 'MAI', value: 0 },
-  { name: 'JUN', value: 0 },
-];
+import { calcularSaldoReal, calcularSaldoTotalUsuario, SaldoCalculado, getUsdBrlRate, toBRL } from '../lib/calcSaldo';
 
 interface DashboardProps {
   onTabChange: (tab: NavigationTab) => void;
@@ -21,206 +12,266 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   const { user } = useAuth();
   const [portfolios, setPortfolios] = useState<UsuarioCarteira[]>([]);
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState<any[]>(MOCK_CHART_DATA);
+  const [profile, setProfile] = useState<any>(null);
+  const [rentData, setRentData] = useState<any[]>([]);
+  const [saldoData, setSaldoData] = useState<SaldoCalculado>({ saldo: 0, totalAportado: 0, totalRetirado: 0, lucroRendimentos: 0, lucroTotal: 0, percentualTotal: 0 });
+  const [saldosPorCarteira, setSaldosPorCarteira] = useState<Record<string, SaldoCalculado>>({});
 
   useEffect(() => {
-    const carregarDados = async () => {
+    const load = async () => {
       if (!user) return;
       setLoading(true);
-      // Busca dados reais do banco
-      const { data, error } = await supabase
-        .from('usuario_carteiras')
-        .select(`
-          *,
-          carteira:carteiras (*)
-        `)
-        .eq('usuario_id', user.id);
 
-      if (!error && data) {
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (prof) setProfile(prof);
+
+      const { data } = await supabase
+        .from('usuario_carteiras')
+        .select('*, carteira:carteiras (*)')
+        .eq('usuario_id', user.id);
+      if (data) {
         setPortfolios(data as UsuarioCarteira[]);
+
+        // Calcular saldo real por carteira (transações + rentabilidade)
+        const total = await calcularSaldoTotalUsuario(user.id, data);
+        setSaldoData(total);
+
+        const byCarteira: Record<string, SaldoCalculado> = {};
+        for (const uc of data) {
+          byCarteira[uc.id] = await calcularSaldoReal(user.id, uc.carteira_id);
+        }
+        setSaldosPorCarteira(byCarteira);
       }
 
-      // Buscar gráfico dinâmico
-      const { data: rentData } = await supabase
+      const { data: rent } = await supabase
         .from('rentabilidade_usuario_mensal')
         .select('*')
         .eq('usuario_id', user.id)
+        .eq('status', 'ativo')
         .order('ano', { ascending: true })
         .order('mes', { ascending: true });
-
-      if (rentData && rentData.length > 0) {
-        const monthNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-        const grouped = {};
-        rentData.forEach(r => {
-           let key = `${r.ano}-${r.mes}`;
-           if(!grouped[key]) grouped[key] = { name: monthNames[r.mes - 1] + '/' + String(r.ano).slice(-2), value: 0 };
-           grouped[key].value += r.saldo_fim || 0;
-        });
-        const dynamicChart = Object.values(grouped);
-        // Only get last 8 periods
-        setChartData(dynamicChart.slice(-8));
-      }
+      if (rent) setRentData(rent);
 
       setLoading(false);
     };
-
-    carregarDados();
+    load();
   }, [user]);
 
-  const saldoTotal = portfolios.reduce((acc, curr) => acc + (curr.saldo_atual || 0), 0);
-  const aportadoTotal = portfolios.reduce((acc, curr) => acc + (curr.total_investido || 0), 0);
-  const retiradoTotal = portfolios.reduce((acc, curr) => acc + (curr.total_retirado || 0), 0);
-  const lucroAcumulado = saldoTotal - aportadoTotal + retiradoTotal;
-  const percentualMedio = aportadoTotal > 0 
-    ? (lucroAcumulado / aportadoTotal) * 100 
-    : portfolios.reduce((acc, curr) => acc + (curr.percentual_rendimento || 0), 0) / (portfolios.length || 1);
-
-  const formatMoney = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  // Estimated yield bonus (progressive interpolation)
+  const calcBonus = () => {
+    let bonus = 0;
+    portfolios.forEach((p: any) => {
+      if (p.rendimento_estimado_ativo && p.rendimento_estimado_data_inicio && p.rendimento_estimado_data_fim) {
+        const ini = new Date(p.rendimento_estimado_data_inicio + 'T00:00:00').getTime();
+        const fim = new Date(p.rendimento_estimado_data_fim + 'T23:59:59').getTime();
+        const now = Date.now();
+        if (now >= ini && now <= fim) {
+          bonus += (p.rendimento_estimado_valor || 0) * Math.min((now - ini) / (fim - ini), 1);
+        } else if (now > fim) bonus += (p.rendimento_estimado_valor || 0);
+      }
+    });
+    return bonus;
   };
 
+  const bonus = calcBonus();
+  const saldo = saldoData.saldo + bonus;
+  const aportado = saldoData.totalAportado;
+  const retirado = saldoData.totalRetirado;
+  const lucro = saldoData.lucroTotal;
+  const percTotal = saldoData.percentualTotal;
+
+  // Monthly perf — if rendimento_percentual is 0, calculate from saldo_inicio/saldo_fim
+  const calcRendPerc = (r: any) => {
+    if (r.rendimento_percentual && r.rendimento_percentual !== 0) return r.rendimento_percentual;
+    if (r.saldo_inicio && r.saldo_inicio > 0) return ((r.saldo_fim - r.saldo_inicio) / r.saldo_inicio) * 100;
+    return 0;
+  };
+
+  const now = new Date();
+  const thisMonth = rentData.filter(r => r.ano === now.getFullYear() && r.mes === now.getMonth() + 1);
+  const percMes = thisMonth.reduce((a, r) => a + calcRendPerc(r), 0);
+
+  // Chart data (last 8 months)
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const grouped: Record<string, { label: string; value: number; perc: number }> = {};
+  rentData.forEach(r => {
+    const key = `${r.ano}-${r.mes}`;
+    if (!grouped[key]) grouped[key] = { label: months[(r.mes || 1) - 1], value: 0, perc: 0 };
+    grouped[key].value += r.saldo_fim || 0;
+    grouped[key].perc += calcRendPerc(r);
+  });
+  const chartBars = Object.values(grouped).slice(-8);
+  const maxChart = Math.max(...chartBars.map(b => b.value), 1);
+
+  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const firstName = profile?.nome?.split(' ')[0] || 'Investidor';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-zinc-500 text-xs tracking-wider uppercase">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 animate-fade-in-up">
-      
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-6">
+    <div className="max-w-[520px] mx-auto pb-8">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <span className="text-primary text-[10px] font-bold tracking-[0.2em] uppercase block mb-2">Visão Geral do Patrimônio</span>
-          <h1 className="text-3xl font-black text-white">Minha Carteira</h1>
+          <p className="text-zinc-500 text-xs">Olá,</p>
+          <h1 className="text-white text-lg font-semibold">{firstName}</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => onTabChange('marketplace')} className="bg-primary hover:bg-emerald-400 text-[#0a0f0e] text-[10px] font-bold uppercase tracking-widest px-6 py-3 transition-colors flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">add</span> Novo Aporte
+          <button
+            onClick={() => onTabChange('marketplace')}
+            className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold px-4 py-2 rounded-full transition-colors"
+          >
+            + Novo Aporte
           </button>
-          <button className="bg-white/5 border border-white/10 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest px-6 py-3 transition-colors flex items-center gap-2">
-            Retirar
-          </button>
+          <div
+            onClick={() => onTabChange('profile')}
+            className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-emerald-400 font-semibold cursor-pointer text-sm"
+          >
+            {firstName.charAt(0)}
+          </div>
         </div>
       </div>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* MAIN BALANCE */}
-        <div className="lg:col-span-2 bg-[#0a0f0e] border border-white/5 p-8 lg:p-10 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/4"></div>
-          
-          <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-2 block">Saldo Bruto Atual (BRL)</span>
-          <h2 className="text-5xl lg:text-6xl font-black text-white mb-6 align-bottom">
-            {formatMoney(saldoTotal).replace('R$', '').trim()} <span className="text-xl text-slate-500 font-light ml-1">BRL</span>
-          </h2>
-
-          <div className="flex flex-wrap gap-6 border-t border-white/5 pt-6 mt-6">
-            <div>
-              <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-1 block">Rentabilidade Acumulada (Monetária)</span>
-              <span className={`text-xl font-bold ${lucroAcumulado >= 0 ? 'text-primary' : 'text-rose-500'}`}>
-                {lucroAcumulado >= 0 ? '+' : ''}{formatMoney(lucroAcumulado)}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-1 block">Rentabilidade Acumulada (%)</span>
-              <div className="flex items-baseline gap-2">
-                  <span className={`text-xl font-bold ${lucroAcumulado >= 0 ? 'text-primary' : 'text-rose-500'}`}>
-                    {lucroAcumulado >= 0 ? '+' : ''}{aportadoTotal > 0 ? ((lucroAcumulado / aportadoTotal) * 100).toFixed(2) : '0.00'}%
-                  </span>
-              </div>
-            </div>
-          </div>
+      {/* Saldo Card */}
+      <div className="bg-zinc-900 rounded-2xl p-6 mb-4">
+        <p className="text-zinc-500 text-xs mb-1">Saldo total investido</p>
+        <h2 className="text-white text-3xl font-bold tracking-tight mb-1">{fmt(saldo)}</h2>
+        <div className="flex items-center gap-1">
+          <span className={`text-sm font-medium ${lucro >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {lucro >= 0 ? '↑' : '↓'} {fmt(Math.abs(lucro))}
+          </span>
+          <span className="text-zinc-600 text-xs">lucro acumulado</span>
         </div>
+        {bonus > 0 && (
+          <p className="text-emerald-500/60 text-[10px] mt-2">● Rendimento estimado em progresso</p>
+        )}
+      </div>
 
-        {/* QUICK INSIGHTS */}
-        <div className="flex flex-col gap-6">
-          <div className="flex-1 bg-[#050807] border border-white/5 p-6 flex flex-col justify-center">
-            <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-2 block">Cotas Integralizadas</span>
-            <span className="text-3xl font-black text-white">{portfolios.length}</span>
-            <span className="text-slate-600 text-xs mt-1">Veículos Ativos no Portfólio</span>
-          </div>
-          <div className="flex-1 bg-[#050807] border border-white/5 p-6 flex flex-col justify-center relative overflow-hidden">
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-10 mix-blend-overlay"></div>
-             <div className="relative z-10">
-               <span className="material-symbols-outlined text-primary mb-2 text-2xl">security</span>
-               <p className="text-white text-sm font-bold w-3/4">Estratégias protegidas contra risco cambial e creditício.</p>
-             </div>
-          </div>
+      {/* Rentabilidade Pills */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="bg-zinc-900 rounded-xl p-4 text-center">
+          <p className="text-zinc-500 text-[10px] mb-1">Hoje</p>
+          <p className={`text-base font-bold ${percTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {percTotal >= 0 ? '+' : ''}{(percTotal / 30).toFixed(2)}%
+          </p>
         </div>
-      </section>
+        <div className="bg-zinc-900 rounded-xl p-4 text-center">
+          <p className="text-zinc-500 text-[10px] mb-1">No mês</p>
+          <p className={`text-base font-bold ${percMes >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {percMes >= 0 ? '+' : ''}{percMes.toFixed(2)}%
+          </p>
+        </div>
+        <div className="bg-zinc-900 rounded-xl p-4 text-center">
+          <p className="text-zinc-500 text-[10px] mb-1">Total</p>
+          <p className={`text-base font-bold ${percTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {percTotal >= 0 ? '+' : ''}{percTotal.toFixed(2)}%
+          </p>
+        </div>
+      </div>
 
-      {/* POSIÇÕES E GRÁFICO */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* CHART SECTION */}
-        <div className="lg:col-span-2 bg-[#0a0f0e] border border-white/5 p-8 relative">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-white text-sm font-black uppercase tracking-widest">Evolução do Fundo</h3>
-            <div className="flex bg-[#050807] border border-white/10 p-1">
-              {['1M', '3M', '6M', 'YTD', 'ALL'].map(t => (
-                <button key={t} className={`px-4 py-1 text-[10px] font-bold transition-all ${t === 'ALL' ? 'bg-primary text-[#0a0f0e]' : 'text-slate-500 hover:text-white'}`}>
-                  {t}
-                </button>
-              ))}
+      {/* Resumo */}
+      <div className="bg-zinc-900 rounded-2xl p-5 mb-4">
+        <div className="flex items-center justify-between py-2">
+          <span className="text-zinc-500 text-xs">Total investido</span>
+          <span className="text-white text-sm font-medium">{fmt(aportado)}</span>
+        </div>
+        <div className="h-px bg-zinc-800 my-1" />
+        <div className="flex items-center justify-between py-2">
+          <span className="text-zinc-500 text-xs">Lucro acumulado</span>
+          <span className={`text-sm font-medium ${lucro >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {lucro >= 0 ? '+' : ''}{fmt(lucro)}
+          </span>
+        </div>
+        {retirado > 0 && (
+          <>
+            <div className="h-px bg-zinc-800 my-1" />
+            <div className="flex items-center justify-between py-2">
+              <span className="text-zinc-500 text-xs">Total retirado</span>
+              <span className="text-red-400 text-sm font-medium">{fmt(retirado)}</span>
             </div>
-          </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00c795" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#00c795" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 700}} dy={10} />
-                <YAxis hide />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#050807', border: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}
-                  itemStyle={{ color: '#00c795' }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#00c795" strokeWidth={2} fill="url(#colorValue)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+          </>
+        )}
+      </div>
 
-        {/* COMPOSIÇÃO DA CARTEIRA */}
-        <div className="bg-[#050807] border border-white/5 p-8 flex flex-col">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-white text-sm font-black uppercase tracking-widest">Composição</h3>
-            <button onClick={() => onTabChange('marketplace')} className="text-primary text-[10px] font-bold uppercase tracking-widest hover:underline">Alocar</button>
+      {/* Fundos Investidos */}
+      <div className="mb-4">
+        <p className="text-zinc-500 text-xs mb-3 px-1">Fundos investidos ({portfolios.length})</p>
+        {portfolios.length === 0 ? (
+          <div className="bg-zinc-900 rounded-2xl p-6 text-center">
+            <p className="text-zinc-600 text-xs mb-3">Você ainda não possui posições</p>
+            <button onClick={() => onTabChange('marketplace')} className="text-emerald-400 text-xs font-medium hover:underline">
+              Descobrir fundos →
+            </button>
           </div>
-
-          <div className="space-y-4 flex-grow overflow-y-auto pr-2">
-            {loading ? (
-              <div className="text-slate-500 text-xs text-center py-10 uppercase tracking-widest animate-pulse">Sincronizando custódia...</div>
-            ) : portfolios.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-6 border border-dashed border-white/10 text-center">
-                <span className="material-symbols-outlined text-slate-600 text-3xl mb-2">account_balance</span>
-                <p className="text-slate-400 text-sm mb-4">Você ainda não possui cotas integralizadas.</p>
-                <button onClick={() => onTabChange('marketplace')} className="text-primary text-xs font-bold uppercase tracking-widest">
-                  Descobrir Teses
-                </button>
-              </div>
-            ) : (
-              portfolios.map(p => (
-                <div key={p.id} className="flex justify-between items-center p-4 bg-[#0a0f0e] border border-white/5 hover:border-primary/30 transition-colors">
-                  <div>
-                    <h4 className="text-white font-bold text-sm">{p.carteira?.nome || 'Fundo Registrado'}</h4>
-                    <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{p.carteira?.tipo || 'Classificado'}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-bold text-sm">{formatMoney(p.saldo_atual || 0)}</p>
-                    <p className={`text-[10px] font-black tracking-widest ${(((p.saldo_atual || 0) - (p.total_investido || 0)) >= 0) ? 'text-primary' : 'text-rose-500'}`}>
-                      {(((p.saldo_atual || 0) - (p.total_investido || 0)) >= 0) ? '+' : ''}{(p.total_investido && p.total_investido > 0 ? ((((p.saldo_atual || 0) - p.total_investido) / p.total_investido) * 100).toFixed(2) : (p.percentual_rendimento || 0).toFixed(2))}%
-                    </p>
-                  </div>
+        ) : portfolios.map(p => {
+          const cs = saldosPorCarteira[p.id];
+          const pSaldo = cs?.saldo || 0;
+          const pPerc = cs?.percentualTotal || 0;
+          return (
+            <div key={p.id} className="bg-zinc-900 rounded-2xl p-4 mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                  {(p.carteira?.nome || 'F').charAt(0)}
                 </div>
-              ))
-            )}
+                <div>
+                  <p className="text-white text-sm font-medium">{p.carteira?.nome || 'Fundo'}</p>
+                  <p className="text-zinc-600 text-[10px] uppercase tracking-wider">{p.carteira?.tipo || '—'}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-white text-sm font-medium">{fmt(pSaldo)}</p>
+                <p className={`text-xs ${pPerc >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {pPerc >= 0 ? '+' : ''}{pPerc.toFixed(2)}%
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Evolução mensal em barras */}
+      {chartBars.length > 0 && (
+        <div className="bg-zinc-900 rounded-2xl p-5">
+          <p className="text-zinc-500 text-xs mb-4">Evolução mensal</p>
+          <div className="flex items-end gap-2" style={{ height: 120 }}>
+            {chartBars.map((bar, i) => {
+              const h = Math.max(8, (bar.value / maxChart) * 100);
+              const isLast = i === chartBars.length - 1;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <span className={`text-[9px] font-medium ${bar.perc >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {bar.perc >= 0 ? '+' : ''}{bar.perc.toFixed(1)}%
+                  </span>
+                  <div
+                    className="w-full rounded-t-md transition-all duration-700"
+                    style={{
+                      height: `${h}%`,
+                      background: isLast
+                        ? 'linear-gradient(to top, #10b981, #34d399)'
+                        : bar.perc >= 0
+                          ? 'rgba(16,185,129,0.2)'
+                          : 'rgba(239,68,68,0.2)',
+                    }}
+                  />
+                  <span className={`text-[9px] ${isLast ? 'text-emerald-400 font-medium' : 'text-zinc-600'}`}>
+                    {bar.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          
-          <button className="w-full text-center mt-6 py-4 border border-white/10 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] hover:text-white hover:bg-white/5 transition-all">
-            Emitir Extrato
-          </button>
         </div>
-      </section>
-      
+      )}
     </div>
   );
 };
