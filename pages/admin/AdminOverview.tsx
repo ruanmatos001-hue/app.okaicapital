@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { calcularSaldoReal, SaldoCalculado } from '../../lib/calcSaldo';
+import { calcularSaldoReal, SaldoCalculado, getUsdBrlRate, toBRL } from '../../lib/calcSaldo';
 
 interface Props {
   onViewChange: (v: string) => void;
@@ -39,9 +39,10 @@ const AdminOverview: React.FC<Props> = ({ onViewChange, selectedFund }) => {
       setTotals(merged);
     }
 
-    const { data: ativos } = await supabase.from('ativos').select('valor_atual').eq('carteira_id', carteira.id).eq('status', 'ativo');
+    const { data: ativos } = await supabase.from('ativos').select('valor_atual, moeda').eq('carteira_id', carteira.id).eq('status', 'ativo');
     if (ativos) {
-      setTotalAtivos(ativos.reduce((s: number, a: any) => s + (a.valor_atual || 0), 0));
+      const rate = await getUsdBrlRate();
+      setTotalAtivos(ativos.reduce((s: number, a: any) => s + toBRL(a.valor_atual || 0, a.moeda || 'BRL', rate), 0));
       setAtivosCount(ativos.length);
     }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { getUsdBrlRate, toBRL } from '../../lib/calcSaldo';
 
 interface Props { selectedFund: string; }
 
@@ -21,8 +22,9 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   const [newOp, setNewOp] = useState({ tipo: 'compra', quantidade: 0, valor_unitario: 0, valor_total: 0, data_operacao: new Date().toISOString().split('T')[0], descricao: '' });
   const [newHist, setNewHist] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() + 1, valor_inicio: 0, valor_fim: 0, rendimento_valor: 0, rendimento_percentual: 0 });
   const [fundEdit, setFundEdit] = useState({ nome: '', descricao: '', rentabilidade_alvo_anual: 0, aporte_minimo: 0, liquidez: '', imagem_url: '' });
+  const [cotacao, setCotacao] = useState(5.0);
 
-  useEffect(() => { loadAtivos(); }, [selectedFund]);
+  useEffect(() => { getUsdBrlRate().then(setCotacao); loadAtivos(); }, [selectedFund]);
 
   const loadAtivos = async () => {
     setLoading(true);
@@ -44,26 +46,51 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   };
 
   const deleteAtivo = async (id: string) => {
-    if (!confirm('Excluir este ativo permanentemente?')) return;
     await supabase.from('ativos').update({ status: 'encerrado' }).eq('id', id);
     loadAtivos();
   };
 
+  // Toggle expand — only collapses if clicking the same asset
   const expandAtivo = async (ativo: any) => {
     if (expanded === ativo.id) { setExpanded(null); return; }
     setExpanded(ativo.id);
     setEditHistId(null);
-    const { data: opsData } = await supabase.from('operacoes_ativos').select('*').eq('ativo_id', ativo.id).order('data_operacao', { ascending: false });
+    await refreshExpandedData(ativo.id);
+  };
+
+  // Refresh data for the currently expanded asset WITHOUT toggling
+  const refreshExpandedData = async (ativoId: string) => {
+    const { data: opsData } = await supabase.from('operacoes_ativos').select('*').eq('ativo_id', ativoId).order('data_operacao', { ascending: false });
     setOps(opsData || []);
-    const { data: histData } = await supabase.from('historico_ativos_mensal').select('*').eq('ativo_id', ativo.id).order('ano', { ascending: false }).order('mes', { ascending: false });
+    const { data: histData } = await supabase.from('historico_ativos_mensal').select('*').eq('ativo_id', ativoId).order('ano', { ascending: false }).order('mes', { ascending: false });
     setHist(histData || []);
+  };
+
+  // Recalculate asset valor_atual from all operations
+  const recalcAtivoValor = async (ativoId: string) => {
+    const { data: allOps } = await supabase.from('operacoes_ativos').select('tipo, valor_total').eq('ativo_id', ativoId);
+    let total = 0;
+    (allOps || []).forEach(o => {
+      if (o.tipo === 'compra' || o.tipo === 'dividendo' || o.tipo === 'juros') total += (o.valor_total || 0);
+      else if (o.tipo === 'venda') total -= (o.valor_total || 0);
+    });
+    // If there's monthly history, use the latest valor_fim instead
+    const { data: lastHist } = await supabase.from('historico_ativos_mensal').select('valor_fim').eq('ativo_id', ativoId).order('ano', { ascending: false }).order('mes', { ascending: false }).limit(1);
+    const valorFinal = (lastHist && lastHist.length > 0) ? lastHist[0].valor_fim : total;
+    // Add operations total on top of the latest history value if both exist
+    const finalVal = (lastHist && lastHist.length > 0 && total > 0) ? Math.max(valorFinal, total) : (valorFinal || total);
+    await supabase.from('ativos').update({ valor_atual: finalVal, updated_at: new Date().toISOString() }).eq('id', ativoId);
   };
 
   const addOp = async (ativoId: string) => {
     const total = newOp.valor_total || (newOp.quantidade * newOp.valor_unitario);
     const { error } = await supabase.from('operacoes_ativos').insert([{ ...newOp, valor_total: total, ativo_id: ativoId }]);
-    if (error) alert('Erro: ' + error.message);
-    else { setNewOp({ tipo: 'compra', quantidade: 0, valor_unitario: 0, valor_total: 0, data_operacao: new Date().toISOString().split('T')[0], descricao: '' }); expandAtivo({ id: ativoId }); }
+    if (error) { alert('Erro: ' + error.message); return; }
+    // Update asset value
+    await recalcAtivoValor(ativoId);
+    setNewOp({ tipo: 'compra', quantidade: 0, valor_unitario: 0, valor_total: 0, data_operacao: new Date().toISOString().split('T')[0], descricao: '' });
+    await refreshExpandedData(ativoId);
+    loadAtivos();
   };
 
   const addHist = async (ativoId: string) => {
@@ -74,7 +101,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
     else {
       await supabase.from('ativos').update({ valor_atual: newHist.valor_fim, retorno_mes: rp, updated_at: new Date().toISOString() }).eq('id', ativoId);
       setNewHist({ ano: new Date().getFullYear(), mes: new Date().getMonth() + 1, valor_inicio: 0, valor_fim: 0, rendimento_valor: 0, rendimento_percentual: 0 });
-      expandAtivo({ id: ativoId });
+      await refreshExpandedData(ativoId);
       loadAtivos();
     }
   };
@@ -84,19 +111,25 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
     const rp = histItem.valor_inicio > 0 ? (rv / histItem.valor_inicio) * 100 : 0;
     await supabase.from('historico_ativos_mensal').update({ valor_inicio: histItem.valor_inicio, valor_fim: histItem.valor_fim, rendimento_valor: rv, rendimento_percentual: rp }).eq('id', histItem.id);
     setEditHistId(null);
-    expandAtivo({ id: histItem.ativo_id });
+    await refreshExpandedData(histItem.ativo_id);
     loadAtivos();
   };
 
   const deleteOp = async (id: string, ativoId: string) => {
     await supabase.from('operacoes_ativos').delete().eq('id', id);
-    expandAtivo({ id: ativoId });
+    await recalcAtivoValor(ativoId);
+    await refreshExpandedData(ativoId);
+    loadAtivos();
   };
 
   const deleteHist = async (id: string, ativoId: string) => {
-    if (!confirm('Excluir este registro?')) return;
-    await supabase.from('historico_ativos_mensal').delete().eq('id', id);
-    expandAtivo({ id: ativoId });
+    console.log('[deleteHist] deleting', id, 'for ativo', ativoId);
+    const { error } = await supabase.from('historico_ativos_mensal').delete().eq('id', id);
+    if (error) { console.error('[deleteHist] error:', error); alert('Erro ao excluir: ' + error.message); return; }
+    console.log('[deleteHist] deleted successfully, refreshing...');
+    await recalcAtivoValor(ativoId);
+    await refreshExpandedData(ativoId);
+    loadAtivos();
   };
 
   const saveFundEdit = async () => {
@@ -107,7 +140,10 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   };
 
   const fmt = (v: number, moeda?: string) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: moeda === 'USD' ? 'USD' : 'BRL' }).format(v);
-  const totalFundo = ativos.reduce((a, c) => a + (c.valor_atual || 0), 0);
+  const fmtBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  // Convert all assets to BRL for totals
+  const totalFundo = ativos.reduce((a, c) => a + toBRL(c.valor_atual || 0, c.moeda || 'BRL', cotacao), 0);
+  const valorBRL = (a: any) => toBRL(a.valor_atual || 0, a.moeda || 'BRL', cotacao);
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
   return (
@@ -115,7 +151,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
       <div className="admin-topbar">
         <div>
           <h1 className="admin-page-title">Ativos do Fundo</h1>
-          <div className="admin-page-sub">{carteira?.nome || selectedFund} · {ativos.length} ativos · {fmt(totalFundo)}</div>
+          <div className="admin-page-sub">{carteira?.nome || selectedFund} · {ativos.length} ativos · {fmtBRL(totalFundo)}</div>
         </div>
         <div className="admin-topbar-right">
           <button className="admin-btn" onClick={() => setShowEditFund(true)}>Editar Fundo</button>
@@ -211,14 +247,22 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                       </span>
                     </td>
                     <td><span className="admin-asset-platform">{a.plataforma}</span></td>
-                    <td className="ok-white" style={{ fontWeight: 500 }}>{fmt(a.valor_atual || 0, a.moeda)}</td>
+                    <td className="ok-white" style={{ fontWeight: 500 }}>
+                      {fmt(a.valor_atual || 0, a.moeda)}
+                      {a.moeda === 'USD' && <span style={{ display: 'block', fontSize: 10, color: 'var(--ok-muted)' }}>≈ {fmtBRL(valorBRL(a))}</span>}
+                    </td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 50, height: 3, background: 'rgba(255,255,255,0.04)', borderRadius: 2, position: 'relative' }}>
-                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(a.percentual_carteira || 0, 100)}%`, background: 'var(--ok-emerald)', borderRadius: 2 }} />
-                        </div>
-                        <span style={{ fontSize: 12 }}>{a.percentual_carteira}%</span>
-                      </div>
+                      {(() => {
+                        const pctReal = totalFundo > 0 ? (valorBRL(a) / totalFundo) * 100 : 0;
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 50, height: 3, background: 'rgba(255,255,255,0.04)', borderRadius: 2, position: 'relative' }}>
+                              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(pctReal, 100)}%`, background: 'var(--ok-emerald)', borderRadius: 2 }} />
+                            </div>
+                            <span style={{ fontSize: 12 }}>{pctReal.toFixed(1)}%</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className={a.retorno_mes >= 0 ? 'ok-up' : 'ok-down'}>{a.retorno_mes >= 0 ? '+' : ''}{(a.retorno_mes || 0).toFixed(2)}%</td>
                     <td className="ok-muted" style={{ fontSize: 11 }}>{new Date(a.updated_at).toLocaleDateString('pt-BR')}</td>
@@ -296,9 +340,11 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                                       <td className={h.rendimento_percentual >= 0 ? 'ok-up' : 'ok-down'}>{h.rendimento_percentual >= 0 ? '+' : ''}{h.rendimento_percentual?.toFixed(2)}%</td>
                                     </>
                                   )}
-                                  <td style={{ display: 'flex', gap: 4 }}>
-                                    {editHistId !== h.id && <button className="admin-btn" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => setEditHistId(h.id)}>✎</button>}
-                                    <button className="admin-btn admin-btn-red" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => deleteHist(h.id, a.id)}>✕</button>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                      {editHistId !== h.id && <button className="admin-btn" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => setEditHistId(h.id)}>✎</button>}
+                                      <button className="admin-btn admin-btn-red" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => deleteHist(h.id, a.id)}>✕</button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}</tbody>
@@ -318,7 +364,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
           <div className="admin-card-title" style={{ marginBottom: 14 }}>Alocação por Plataforma</div>
           {(() => {
             const byPlat: Record<string, number> = {};
-            ativos.forEach(a => { byPlat[a.plataforma] = (byPlat[a.plataforma] || 0) + (a.valor_atual || 0); });
+            ativos.forEach(a => { byPlat[a.plataforma] = (byPlat[a.plataforma] || 0) + valorBRL(a); });
             return Object.entries(byPlat).map(([plat, val]) => {
               const pct = totalFundo > 0 ? (val / totalFundo) * 100 : 0;
               return (
@@ -326,7 +372,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                   <div className="admin-alloc-name">{plat}</div>
                   <div className="admin-alloc-bar-wrap"><div className="admin-alloc-bar" style={{ width: `${pct}%` }} /></div>
                   <div className="admin-alloc-pct">{pct.toFixed(0)}%</div>
-                  <div className="admin-alloc-val">{fmt(val)}</div>
+                  <div className="admin-alloc-val">{fmtBRL(val)}</div>
                 </div>
               );
             });
