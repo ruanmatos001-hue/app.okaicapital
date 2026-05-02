@@ -59,163 +59,167 @@ const Fundos: React.FC = () => {
   }));
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-6">
-        <div>
-          <span className="text-primary text-[10px] font-bold tracking-[0.2em] uppercase block mb-2">Wealth & Asset Management</span>
-          <h1 className="text-3xl font-black text-white">Nossos Fundos Exclusivos</h1>
-        </div>
+    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <span style={{ color: '#10b981', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, display: 'block', marginBottom: 6 }}>
+          Wealth & Asset Management
+        </span>
+        <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, margin: 0 }}>Nossos Fundos Exclusivos</h1>
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center py-20 text-slate-500 text-xs uppercase tracking-widest animate-pulse">
-          Sincronizando prateleira estruturada...
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 32, height: 32, border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
+            <p style={{ color: '#52525b', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase' as const }}>Sincronizando prateleira estruturada...</p>
+          </div>
         </div>
       ) : fundoGrao ? (
-        <div className="grid grid-cols-1 gap-8">
+        <div>
           {/* Card Principal - Fundo Grão */}
-          <div className="bg-[#0a0f0e] border border-white/10 rounded overflow-hidden flex flex-col md:flex-row group transition-all duration-500 hover:border-primary/50">
-            <div className="w-full md:w-2/5 relative h-64 md:h-auto overflow-hidden">
+          <div style={{ background: '#18181b', borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', marginBottom: showDetails ? 0 : 24, transition: 'all 0.3s' }}>
+            {/* Image Section */}
+            <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
               <img 
                 src={fundoGrao.imagem_url || "https://images.unsplash.com/photo-1594904351111-a072f80b1a71?q=80&w=800&auto=format&fit=crop"} 
                 alt={fundoGrao.nome} 
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0a0f0e]/50 via-transparent to-transparent"></div>
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #18181b 0%, transparent 60%)' }} />
               
-              <div className="absolute top-6 left-6 flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-background-dark/80 backdrop-blur-md text-primary text-[9px] font-black rounded-lg border border-primary/20 tracking-wider">
+              <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: 6 }}>
+                <span style={{ padding: '4px 10px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', color: '#10b981', fontSize: 9, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(16,185,129,0.2)', letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>
                   MULTI-APLICAÇÃO
                 </span>
-                <span className="px-3 py-1 bg-background-dark/80 backdrop-blur-md text-slate-300 text-[9px] font-black rounded-lg border border-white/10 tracking-wider">
+                <span style={{ padding: '4px 10px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', color: '#a1a1aa', fontSize: 9, fontWeight: 700, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>
                   ALTO ALFA
                 </span>
               </div>
             </div>
 
-            <div className="p-8 md:p-10 flex flex-col flex-grow md:w-3/5">
-              <div className="mb-6">
-                <h3 className="text-3xl font-bold text-white mb-2">{fundoGrao.nome}</h3>
-                <p className="text-slate-400 text-sm font-light leading-relaxed">
-                  {fundoGrao.descricao || 'Estratégia quantitativa focada em commodities globais e estrutura multiclasse com proteção atrelada. Operação executada por agentes institucionais.'}
-                </p>
+            {/* Content */}
+            <div style={{ padding: '20px 24px 24px' }}>
+              <h3 style={{ color: '#fff', fontSize: 22, fontWeight: 700, margin: '0 0 8px' }}>{fundoGrao.nome}</h3>
+              <p style={{ color: '#71717a', fontSize: 13, lineHeight: 1.6, margin: '0 0 20px' }}>
+                {fundoGrao.descricao || 'Estratégia quantitativa focada em commodities globais e estrutura multiclasse com proteção atrelada. Operação executada por agentes institucionais.'}
+              </p>
+
+              {/* Stats Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: 'Aporte Inicial', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(fundoGrao.aporte_minimo || 5000) },
+                  { label: 'Liquidez', value: fundoGrao.liquidez || 'D+30' },
+                  { label: 'Target Anual', value: `${fundoGrao.rentabilidade_alvo_anual || 18}%`, highlight: true },
+                  { label: 'Status', value: 'Captação Aberta', status: true },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: '#111113', borderRadius: 10, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <p style={{ color: '#52525b', fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, margin: '0 0 6px' }}>{s.label}</p>
+                    <p style={{ color: s.highlight ? '#10b981' : s.status ? '#34d399' : '#fff', fontSize: 15, fontWeight: 700, margin: 0, letterSpacing: s.status ? '0.05em' : 'normal', textTransform: s.status ? 'uppercase' as const : 'none' as const }}>
+                      {s.value}
+                    </p>
+                  </div>
+                ))}
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8 border-b border-white/5 pb-8">
-                <div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Aporte Inicial</p>
-                  <p className="text-white font-bold text-lg">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(fundoGrao.aporte_minimo || 5000)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Liquidez</p>
-                  <p className="text-slate-300 font-bold text-lg uppercase">{fundoGrao.liquidez || 'D+30'}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Target Anual</p>
-                  <p className="text-primary font-black text-lg">{(fundoGrao.rentabilidade_alvo_anual || 18)}%</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Status</p>
-                  <p className="text-emerald-400 font-black text-base uppercase tracking-widest mb-1">Captação Aberta</p>
-                </div>
-              </div>
-
-              <div className="mt-auto flex flex-col sm:flex-row gap-4">
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 10 }}>
                 <button 
                   onClick={() => setShowDetails(!showDetails)}
-                  className="px-8 py-4 bg-[#050807] border border-white/10 text-white font-black text-xs uppercase tracking-widest hover:bg-white/5 transition-all text-center flex-1"
+                  style={{ flex: 1, padding: '14px 16px', background: '#111113', border: '1px solid rgba(255,255,255,0.08)', color: '#a1a1aa', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.1em', borderRadius: 10, cursor: 'pointer', transition: 'all 0.2s' }}
                 >
                   {showDetails ? 'Ocultar Detalhes' : 'Ver Rentabilidade & Portfólio'}
                 </button>
-                <button className="px-8 py-4 bg-primary text-[#0a0f0e] font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all text-center flex-1 border border-primary">
+                <button style={{ flex: 1, padding: '14px 16px', background: '#10b981', border: 'none', color: '#000', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.1em', borderRadius: 10, cursor: 'pointer', transition: 'all 0.2s' }}>
                   Investir no Fundo Grão
                 </button>
               </div>
             </div>
           </div>
 
-          {/* DADOS DETALHADOS (SÓ APARECE AO CLICAR) */}
+          {/* DADOS DETALHADOS */}
           {showDetails && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-t border-primary/20 pt-8 animate-in fade-in slide-in-from-top-4 duration-500">
-              
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, paddingTop: 12, animation: 'fadeInUp 0.4s ease' }}>
               {/* Gráfico de Histórico */}
-              <div className="bg-[#050807] border border-white/5 p-8 relative">
-                <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-6 block">Rentabilidade Histórica (M/M)</span>
+              <div style={{ background: '#18181b', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ color: '#71717a', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, display: 'block', marginBottom: 20 }}>
+                  Rentabilidade Histórica (M/M)
+                </span>
                 {historico.length > 0 ? (
-                  <div className="h-64 w-full">
+                  <div style={{ height: 220, width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={chartData}>
                         <defs>
                           <linearGradient id="renGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#00c795" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#00c795" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 10, fontWeight: 700}} dy={10} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#52525b', fontSize: 10, fontWeight: 600}} dy={10} />
                         <YAxis hide />
                         <Tooltip 
-                          contentStyle={{ backgroundColor: '#050807', border: '1px solid rgba(255,255,255,0.1)' }}
-                          itemStyle={{ color: '#00c795', fontWeight: 'bold' }}
+                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
+                          itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
                           formatter={(val: number) => [`${val}%`, 'Retorno']}
-                          labelStyle={{ color: '#94a3b8' }}
+                          labelStyle={{ color: '#71717a' }}
                         />
-                        <Area type="monotone" dataKey="retorno" stroke="#00c795" strokeWidth={2} fill="url(#renGradient)" />
+                        <Area type="monotone" dataKey="retorno" stroke="#10b981" strokeWidth={2} fill="url(#renGradient)" />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="h-64 w-full flex items-center justify-center text-[10px] text-slate-500 uppercase tracking-widest">
+                  <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#52525b', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>
                     Sem histórico registrado (Atualize o Banco de Dados)
                   </div>
                 )}
               </div>
 
               {/* Gráfico de Composição Multi-Aplicação */}
-              <div className="bg-[#050807] border border-white/5 p-8 flex flex-col">
-                <span className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.2em] mb-6 block">Composição do Portfólio</span>
+              <div style={{ background: '#18181b', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ color: '#71717a', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, display: 'block', marginBottom: 20 }}>
+                  Composição do Portfólio
+                </span>
                 
                 {composicao.length > 0 ? (
-                  <div className="flex items-center gap-8 flex-grow">
-                    <div className="w-48 h-48">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap' }}>
+                    <div style={{ width: 180, height: 180 }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={composicao}
                             cx="50%"
                             cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
+                            innerRadius={55}
+                            outerRadius={75}
+                            paddingAngle={4}
                             dataKey="percentual"
                           >
                             {composicao.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.cor_hexa || '#00c795'} />
+                              <Cell key={`cell-${index}`} fill={entry.cor_hexa || '#10b981'} />
                             ))}
                           </Pie>
                           <Tooltip 
-                            contentStyle={{ backgroundColor: '#050807', border: '1px solid rgba(255,255,255,0.1)' }}
-                            itemStyle={{ color: '#white', fontWeight: 'bold' }}
+                            contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
+                            itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                             formatter={(val: number, name: string, props: any) => [`${val}%`, props.payload.ativo_nome]}
                           />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="flex-1 space-y-3">
+                    <div style={{ flex: 1, minWidth: 200 }}>
                       {composicao.map((c, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.cor_hexa || '#00c795' }}></span>
-                            <span className="text-white font-medium">{c.ativo_nome}</span>
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: idx < composicao.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.cor_hexa || '#10b981', display: 'inline-block' }} />
+                            <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{c.ativo_nome}</span>
                           </div>
-                          <span className="font-bold text-slate-400">{c.percentual}%</span>
+                          <span style={{ fontWeight: 700, color: '#71717a', fontSize: 13 }}>{c.percentual}%</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="flex-grow flex items-center justify-center text-[10px] text-slate-500 uppercase tracking-widest border border-dashed border-white/10 p-6">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, color: '#52525b', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' as const, border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 10 }}>
                     Mapeamento de ativos vazio. (Preencha a tabela `composicao_carteira` no banco)
                   </div>
                 )}
@@ -224,10 +228,20 @@ const Fundos: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="bg-[#0a0f0e] border border-white/5 p-12 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">
+        <div style={{ background: '#18181b', borderRadius: 16, padding: 48, textAlign: 'center', color: '#52525b', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', fontSize: 11, border: '1px solid rgba(255,255,255,0.04)' }}>
           Nenhum fundo encontrado no momento. Verifique a tabela `carteiras`.
         </div>
       )}
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

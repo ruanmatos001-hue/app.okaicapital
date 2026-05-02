@@ -8,7 +8,6 @@ import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import HedgeFundManager from './pages/HedgeFundManager';
 import BottomNav from './components/BottomNav';
-import Header from './components/Header';
 import SuitabilityForm from './components/SuitabilityForm';
 import { NavigationTab } from './types';
 
@@ -50,7 +49,7 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Usuário autenticado → App
+  // Usuário autenticado → App (sem header superior, somente BottomNav)
   if (user) {
     const renderPage = () => {
       switch (activeTab) {
@@ -69,8 +68,7 @@ const AppContent: React.FC = () => {
 
     return (
       <div className="min-h-screen bg-background-dark text-slate-100 flex flex-col pb-24 md:pb-0 font-display">
-        <Header activeTab={activeTab} onTabChange={setActiveTab} />
-        <main className="flex-grow w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-4 sm:py-8 transition-opacity duration-300 relative z-10">
+        <main className="flex-grow w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-4 sm:py-8 md:pt-20 transition-opacity duration-300 relative z-10">
           {renderPage()}
         </main>
         <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />

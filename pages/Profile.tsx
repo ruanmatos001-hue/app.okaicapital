@@ -47,114 +47,139 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in-up md:max-w-4xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/5 pb-6">
-        <div>
-          <span className="text-primary text-[10px] font-bold tracking-[0.2em] uppercase block mb-2">Conta e Governança</span>
-          <h1 className="text-3xl font-black text-white">Seu Perfil</h1>
-        </div>
+    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <span style={{ color: '#10b981', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, display: 'block', marginBottom: 6 }}>
+          Conta e Governança
+        </span>
+        <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, margin: 0 }}>Seu Perfil</h1>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 bg-[#0a0f0e] border border-white/5 p-8 sm:p-10">
-        <div className="relative">
+      {/* Profile Card */}
+      <div style={{ background: '#18181b', borderRadius: 16, padding: '28px 24px', border: '1px solid rgba(255,255,255,0.04)', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative' }}>
           <input 
             type="file" 
             ref={fileInputRef} 
             onChange={handleFileChange} 
-            className="hidden" 
+            style={{ display: 'none' }} 
             accept="image/*"
           />
           <img 
             src={profile?.avatar_url || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"} 
             alt="User Profile" 
-            className={`w-28 h-28 object-cover border border-white/20 grayscale hover:grayscale-0 transition-all duration-500 ${uploading ? 'opacity-50 blur-sm' : ''}`}
+            style={{ 
+              width: 96, height: 96, objectFit: 'cover', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)',
+              filter: uploading ? 'blur(4px)' : 'none', opacity: uploading ? 0.5 : 1, transition: 'all 0.3s'
+            }}
           />
           <button 
             onClick={handleEditClick}
             disabled={uploading}
-            className="absolute -bottom-3 -right-3 w-8 h-8 bg-primary text-[#0a0f0e] border border-[#0a0f0e] flex items-center justify-center hover:scale-110 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+            style={{ 
+              position: 'absolute', bottom: -6, right: -6, width: 28, height: 28, background: '#10b981', color: '#000', border: '2px solid #18181b', borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: uploading ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+              opacity: uploading ? 0.5 : 1
+            }}
           >
-            <span className="material-symbols-outlined text-[1rem]">
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
               {uploading ? 'hourglass_empty' : 'edit'}
             </span>
           </button>
         </div>
         
-        <div className="flex-grow text-center sm:text-left mt-2 sm:mt-0">
-          <h2 className="text-2xl font-bold text-white mb-1 uppercase tracking-tight">{profile?.nome || 'Investidor Institucional'}</h2>
-          <div className="flex items-center justify-center sm:justify-start gap-3 mt-2 mb-6">
-            <span className="px-3 py-1 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] border border-primary/20">
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' as const, letterSpacing: '-0.01em' }}>
+            {profile?.nome || 'Investidor Institucional'}
+          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <span style={{ padding: '3px 10px', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontSize: 9, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(16,185,129,0.15)', letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>
               {profile?.tipo_investidor === 'qualificado' ? 'Qualificado' : profile?.tipo_investidor === 'profissional' ? 'Profissional' : 'Pro'}
             </span>
-            <span className="text-slate-500 text-xs font-semibold">{profile?.email || 'email@okai.com'}</span>
+            <span style={{ color: '#52525b', fontSize: 12, fontWeight: 500 }}>{profile?.email || 'email@okai.com'}</span>
           </div>
 
-          <div className="flex flex-wrap justify-center sm:justify-start gap-4 pt-4 border-t border-white/5">
+          <div style={{ display: 'flex', gap: 24, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
             <div>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Status de Risco</p>
-              <p className="text-white text-sm font-bold tracking-widest">Conservador-Agressivo</p>
+              <p style={{ color: '#52525b', fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, margin: '0 0 4px' }}>Status de Risco</p>
+              <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0 }}>Conservador-Agressivo</p>
             </div>
-            <div className="pl-0 sm:pl-6 sm:border-l border-white/5">
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-1">Onboarding Institucional</p>
-              <p className="text-emerald-400 font-bold text-xs uppercase flex items-center gap-1">
-                Concluído <span className="material-symbols-outlined text-[14px]">verified</span>
+            <div style={{ paddingLeft: 24, borderLeft: '1px solid rgba(255,255,255,0.04)' }}>
+              <p style={{ color: '#52525b', fontSize: 9, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' as const, margin: '0 0 4px' }}>Onboarding Institucional</p>
+              <p style={{ color: '#34d399', fontWeight: 700, fontSize: 12, textTransform: 'uppercase' as const, margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                Concluído <span className="material-symbols-outlined" style={{ fontSize: 14 }}>verified</span>
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-[#050807] border border-white/5 p-8 flex flex-col">
-          <h3 className="text-white text-sm font-black uppercase tracking-widest mb-8 border-b border-light/5 pb-4">Protocolos de Segurança</h3>
-          <div className="space-y-3 flex-grow">
+      {/* Cards Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        {/* Security Card */}
+        <div style={{ background: '#18181b', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.04)' }}>
+          <h3 style={{ color: '#fff', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', margin: '0 0 20px', paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            Protocolos de Segurança
+          </h3>
+          <div>
             {[
               { label: 'Biometria Dactilar', status: 'Ativado', icon: 'fingerprint' },
               { label: 'Aprovação de Saque Multi-Level', status: 'Em Análise', icon: 'gpp_maybe' },
               { label: 'Dispositivos Confiáveis', status: '2 Ativos', icon: 'devices' },
             ].map((s) => (
-              <div key={s.label} className="flex items-center justify-between py-3 border-b border-white/5 last:border-0 group">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-slate-500 text-[18px] group-hover:text-primary transition-colors">{s.icon}</span>
-                  <span className="text-xs font-medium text-slate-300">{s.label}</span>
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="material-symbols-outlined" style={{ color: '#52525b', fontSize: 18 }}>{s.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: '#d4d4d8' }}>{s.label}</span>
                 </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest ${s.status === 'Ativado' ? 'text-primary' : 'text-slate-500'}`}>{s.status}</span>
+                <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: s.status === 'Ativado' ? '#10b981' : '#52525b' }}>{s.status}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-[#050807] border border-white/5 p-8 flex flex-col">
-          <h3 className="text-white text-sm font-black uppercase tracking-widest mb-8 border-b border-light/5 pb-4">Suporte & Documentos</h3>
-          <div className="space-y-3 flex-grow">
-             {[
+        {/* Support Card */}
+        <div style={{ background: '#18181b', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.04)' }}>
+          <h3 style={{ color: '#fff', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', margin: '0 0 20px', paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            Suporte & Documentos
+          </h3>
+          <div>
+            {[
               { label: 'Relatório de Imposto de Renda', dsc: 'Ano Ref. 2023', icon: 'description' },
               { label: 'Termos de Adesão do Fundo', dsc: 'Grão Alpha', icon: 'gavel' },
               { label: 'Atendimento Private', dsc: 'SLA 4 Horas', icon: 'support_agent' },
             ].map((s) => (
-              <button key={s.label} className="w-full text-left flex items-center justify-between py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-all p-2 -mx-2 rounded">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-slate-500 text-[18px]">{s.icon}</span>
+              <button key={s.label} style={{ 
+                width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 4px', 
+                borderBottom: '1px solid rgba(255,255,255,0.03)', background: 'transparent', border: 'none', borderBottomStyle: 'solid', 
+                borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'all 0.2s'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="material-symbols-outlined" style={{ color: '#52525b', fontSize: 18 }}>{s.icon}</span>
                   <div>
-                    <span className="text-xs font-bold text-slate-300 block">{s.label}</span>
-                    <span className="text-[9px] text-slate-500 font-bold tracking-widest uppercase">{s.dsc}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#d4d4d8', display: 'block' }}>{s.label}</span>
+                    <span style={{ fontSize: 9, color: '#52525b', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>{s.dsc}</span>
                   </div>
                 </div>
-                <span className="material-symbols-outlined text-slate-600 text-[16px]">arrow_forward</span>
+                <span className="material-symbols-outlined" style={{ color: '#3f3f46', fontSize: 16 }}>arrow_forward</span>
               </button>
             ))}
           </div>
         </div>
       </div>
       
-      <div className="pt-4">
-        <button 
-          onClick={signOut}
-          className="w-full py-5 bg-[#0a0f0e] border border-rose-500/20 text-rose-500 font-black text-xs uppercase tracking-[0.2em] hover:bg-rose-500/10 transition-all text-center"
-        >
-          Encerrar Sessão Segura
-        </button>
-      </div>
+      {/* Logout */}
+      <button 
+        onClick={signOut}
+        style={{ 
+          width: '100%', padding: '16px 20px', background: '#18181b', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 12,
+          color: '#ef4444', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.15em',
+          cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center'
+        }}
+      >
+        Encerrar Sessão Segura
+      </button>
     </div>
   );
 };

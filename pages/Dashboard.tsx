@@ -9,21 +9,18 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [portfolios, setPortfolios] = useState<UsuarioCarteira[]>([]);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
   const [rentData, setRentData] = useState<any[]>([]);
   const [saldoData, setSaldoData] = useState<SaldoCalculado>({ saldo: 0, totalAportado: 0, totalRetirado: 0, lucroRendimentos: 0, lucroTotal: 0, percentualTotal: 0 });
   const [saldosPorCarteira, setSaldosPorCarteira] = useState<Record<string, SaldoCalculado>>({});
+  const [estimatedResult, setEstimatedResult] = useState<{ valor: number; percentual: number; dataInicio?: string; dataFim?: string } | null>(null);
 
   useEffect(() => {
     const load = async () => {
       if (!user) return;
       setLoading(true);
-
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (prof) setProfile(prof);
 
       const { data } = await supabase
         .from('usuario_carteiras')
@@ -41,6 +38,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           byCarteira[uc.id] = await calcularSaldoReal(user.id, uc.carteira_id);
         }
         setSaldosPorCarteira(byCarteira);
+
+        // Fetch estimated result from usuario_carteiras rendimento_estimado
+        let estTotal = 0;
+        let hasEst = false;
+        let estDi = '';
+        let estDf = '';
+        data.forEach((p: any) => {
+          if (p.rendimento_estimado_ativo && p.rendimento_estimado_valor) {
+            estTotal += p.rendimento_estimado_valor;
+            hasEst = true;
+            if (p.rendimento_estimado_data_inicio) estDi = p.rendimento_estimado_data_inicio;
+            if (p.rendimento_estimado_data_fim) estDf = p.rendimento_estimado_data_fim;
+          }
+        });
+        if (hasEst && total.totalAportado > 0) {
+          setEstimatedResult({ valor: estTotal, percentual: (estTotal / total.totalAportado) * 100, dataInicio: estDi, dataFim: estDf });
+        }
       }
 
       const { data: rent } = await supabase
@@ -91,51 +105,57 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   const thisMonth = rentData.filter(r => r.ano === now.getFullYear() && r.mes === now.getMonth() + 1);
   const percMes = thisMonth.reduce((a, r) => a + calcRendPerc(r), 0);
 
-  // Chart data (last 8 months)
+  // Chart data (last 8 months) — ONLY % 
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const grouped: Record<string, { label: string; value: number; perc: number }> = {};
+  const grouped: Record<string, { label: string; perc: number }> = {};
   rentData.forEach(r => {
     const key = `${r.ano}-${r.mes}`;
-    if (!grouped[key]) grouped[key] = { label: months[(r.mes || 1) - 1], value: 0, perc: 0 };
-    grouped[key].value += r.saldo_fim || 0;
+    if (!grouped[key]) grouped[key] = { label: months[(r.mes || 1) - 1], perc: 0 };
     grouped[key].perc += calcRendPerc(r);
   });
   const chartBars = Object.values(grouped).slice(-8);
-  const maxChart = Math.max(...chartBars.map(b => b.value), 1);
+  const maxPerc = Math.max(...chartBars.map(b => Math.abs(b.perc)), 0.1);
 
   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
   const firstName = profile?.nome?.split(' ')[0] || 'Investidor';
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-zinc-500 text-xs tracking-wider uppercase">Carregando...</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 32, height: 32, border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
+          <p style={{ color: '#71717a', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>Carregando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-[520px] mx-auto pb-8">
+    <div style={{ maxWidth: 520, margin: '0 auto', paddingBottom: 32 }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-zinc-500 text-xs">Olá,</p>
-          <h1 className="text-white text-lg font-semibold">{firstName}</h1>
+      {/* Sub-Header com saudação + ação */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div>
+            <p style={{ color: '#71717a', fontSize: 11, margin: 0 }}>Olá,</p>
+            <h1 style={{ color: '#fff', fontSize: 18, fontWeight: 600, margin: 0 }}>{firstName}</h1>
+          </div>
+          {/* Pulsing Market Active Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 20, padding: '4px 10px' }}>
+            <span className="market-pulse-dot" />
+            <span style={{ fontSize: 9, color: '#10b981', letterSpacing: '0.05em', textTransform: 'uppercase' as const, fontWeight: 600 }}>Operando</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button
             onClick={() => onTabChange('marketplace')}
-            className="bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold px-4 py-2 rounded-full transition-colors"
+            style={{ background: '#10b981', color: '#000', fontSize: 11, fontWeight: 700, padding: '8px 16px', borderRadius: 20, border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
           >
             + Novo Aporte
           </button>
           <div
             onClick={() => onTabChange('profile')}
-            className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-emerald-400 font-semibold cursor-pointer text-sm"
+            style={{ width: 36, height: 36, borderRadius: '50%', background: '#18181b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontWeight: 600, cursor: 'pointer', fontSize: 14, border: '1px solid rgba(16,185,129,0.2)' }}
           >
             {firstName.charAt(0)}
           </div>
@@ -143,73 +163,100 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       </div>
 
       {/* Saldo Card */}
-      <div className="bg-zinc-900 rounded-2xl p-6 mb-4">
-        <p className="text-zinc-500 text-xs mb-1">Saldo total investido</p>
-        <h2 className="text-white text-3xl font-bold tracking-tight mb-1">{fmt(saldo)}</h2>
-        <div className="flex items-center gap-1">
-          <span className={`text-sm font-medium ${lucro >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+      <div style={{ background: '#18181b', borderRadius: 16, padding: '24px 24px 20px', marginBottom: 12, border: '1px solid rgba(255,255,255,0.04)' }}>
+        <p style={{ color: '#71717a', fontSize: 11, margin: '0 0 4px' }}>Saldo total investido</p>
+        <h2 style={{ color: '#fff', fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>{fmt(saldo)}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: lucro >= 0 ? '#10b981' : '#ef4444' }}>
             {lucro >= 0 ? '↑' : '↓'} {fmt(Math.abs(lucro))}
           </span>
-          <span className="text-zinc-600 text-xs">lucro acumulado</span>
+          <span style={{ color: '#52525b', fontSize: 11 }}>lucro acumulado</span>
         </div>
         {bonus > 0 && (
-          <p className="text-emerald-500/60 text-[10px] mt-2">● Rendimento estimado em progresso</p>
+          <p style={{ color: 'rgba(16,185,129,0.5)', fontSize: 10, marginTop: 8 }}>● Rendimento estimado em progresso</p>
         )}
       </div>
 
       {/* Rentabilidade Pills */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="bg-zinc-900 rounded-xl p-4 text-center">
-          <p className="text-zinc-500 text-[10px] mb-1">Hoje</p>
-          <p className={`text-base font-bold ${percTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <div style={{ background: '#18181b', borderRadius: 12, padding: '14px 8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <p style={{ color: '#71717a', fontSize: 10, margin: '0 0 4px' }}>Hoje</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: percTotal >= 0 ? '#10b981' : '#ef4444', margin: 0 }}>
             {percTotal >= 0 ? '+' : ''}{(percTotal / 30).toFixed(2)}%
           </p>
         </div>
-        <div className="bg-zinc-900 rounded-xl p-4 text-center">
-          <p className="text-zinc-500 text-[10px] mb-1">No mês</p>
-          <p className={`text-base font-bold ${percMes >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div style={{ background: '#18181b', borderRadius: 12, padding: '14px 8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <p style={{ color: '#71717a', fontSize: 10, margin: '0 0 4px' }}>No mês</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: percMes >= 0 ? '#10b981' : '#ef4444', margin: 0 }}>
             {percMes >= 0 ? '+' : ''}{percMes.toFixed(2)}%
           </p>
         </div>
-        <div className="bg-zinc-900 rounded-xl p-4 text-center">
-          <p className="text-zinc-500 text-[10px] mb-1">Total</p>
-          <p className={`text-base font-bold ${percTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div style={{ background: '#18181b', borderRadius: 12, padding: '14px 8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <p style={{ color: '#71717a', fontSize: 10, margin: '0 0 4px' }}>Total</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: percTotal >= 0 ? '#10b981' : '#ef4444', margin: 0 }}>
             {percTotal >= 0 ? '+' : ''}{percTotal.toFixed(2)}%
           </p>
         </div>
       </div>
 
-      {/* Resumo */}
-      <div className="bg-zinc-900 rounded-2xl p-5 mb-4">
-        <div className="flex items-center justify-between py-2">
-          <span className="text-zinc-500 text-xs">Total investido</span>
-          <span className="text-white text-sm font-medium">{fmt(aportado)}</span>
+      {/* Resultado Estimado (visible to client) */}
+      {estimatedResult && (
+        <div style={{ 
+          background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02))', 
+          borderRadius: 14, 
+          padding: '16px 20px', 
+          marginBottom: 12, 
+          border: '1px solid rgba(16,185,129,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <p style={{ color: '#71717a', fontSize: 10, margin: '0 0 4px', letterSpacing: '0.05em', textTransform: 'uppercase' as const }}>Resultado Estimado do Mês</p>
+            <p style={{ color: '#10b981', fontSize: 11, margin: 0 }}>
+              {estimatedResult.dataInicio && estimatedResult.dataFim
+                ? `${new Date(estimatedResult.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')} → ${new Date(estimatedResult.dataFim + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                : 'Projeção baseada na operação atual do fundo'}
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ color: '#10b981', fontSize: 18, fontWeight: 700, margin: '0 0 2px' }}>{fmt(estimatedResult.valor)}</p>
+            <p style={{ color: '#10b981', fontSize: 11, margin: 0, opacity: 0.7 }}>≈ {estimatedResult.percentual.toFixed(1)}%</p>
+          </div>
         </div>
-        <div className="h-px bg-zinc-800 my-1" />
-        <div className="flex items-center justify-between py-2">
-          <span className="text-zinc-500 text-xs">Lucro acumulado</span>
-          <span className={`text-sm font-medium ${lucro >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+      )}
+
+      {/* Resumo */}
+      <div style={{ background: '#18181b', borderRadius: 16, padding: 20, marginBottom: 12, border: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+          <span style={{ color: '#71717a', fontSize: 12 }}>Total investido</span>
+          <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{fmt(aportado)}</span>
+        </div>
+        <div style={{ height: 1, background: '#27272a', margin: '4px 0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+          <span style={{ color: '#71717a', fontSize: 12 }}>Lucro acumulado</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: lucro >= 0 ? '#10b981' : '#ef4444' }}>
             {lucro >= 0 ? '+' : ''}{fmt(lucro)}
           </span>
         </div>
         {retirado > 0 && (
           <>
-            <div className="h-px bg-zinc-800 my-1" />
-            <div className="flex items-center justify-between py-2">
-              <span className="text-zinc-500 text-xs">Total retirado</span>
-              <span className="text-red-400 text-sm font-medium">{fmt(retirado)}</span>
+            <div style={{ height: 1, background: '#27272a', margin: '4px 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+              <span style={{ color: '#71717a', fontSize: 12 }}>Total retirado</span>
+              <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 500 }}>{fmt(retirado)}</span>
             </div>
           </>
         )}
       </div>
 
       {/* Fundos Investidos */}
-      <div className="mb-4">
-        <p className="text-zinc-500 text-xs mb-3 px-1">Fundos investidos ({portfolios.length})</p>
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ color: '#71717a', fontSize: 11, marginBottom: 10, paddingLeft: 4 }}>Fundos investidos ({portfolios.length})</p>
         {portfolios.length === 0 ? (
-          <div className="bg-zinc-900 rounded-2xl p-6 text-center">
-            <p className="text-zinc-600 text-xs mb-3">Você ainda não possui posições</p>
-            <button onClick={() => onTabChange('marketplace')} className="text-emerald-400 text-xs font-medium hover:underline">
+          <div style={{ background: '#18181b', borderRadius: 16, padding: 24, textAlign: 'center', border: '1px solid rgba(255,255,255,0.04)' }}>
+            <p style={{ color: '#52525b', fontSize: 12, marginBottom: 10 }}>Você ainda não possui posições</p>
+            <button onClick={() => onTabChange('marketplace')} style={{ color: '#10b981', fontSize: 12, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer' }}>
               Descobrir fundos →
             </button>
           </div>
@@ -218,19 +265,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           const pSaldo = cs?.saldo || 0;
           const pPerc = cs?.percentualTotal || 0;
           return (
-            <div key={p.id} className="bg-zinc-900 rounded-2xl p-4 mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs font-bold">
+            <div key={p.id} style={{ background: '#18181b', borderRadius: 16, padding: '14px 16px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', fontSize: 12, fontWeight: 700 }}>
                   {(p.carteira?.nome || 'F').charAt(0)}
                 </div>
                 <div>
-                  <p className="text-white text-sm font-medium">{p.carteira?.nome || 'Fundo'}</p>
-                  <p className="text-zinc-600 text-[10px] uppercase tracking-wider">{p.carteira?.tipo || '—'}</p>
+                  <p style={{ color: '#fff', fontSize: 13, fontWeight: 500, margin: 0 }}>{p.carteira?.nome || 'Fundo'}</p>
+                  <p style={{ color: '#52525b', fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: '0.08em', margin: 0 }}>{p.carteira?.tipo || '—'}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-white text-sm font-medium">{fmt(pSaldo)}</p>
-                <p className={`text-xs ${pPerc >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ color: '#fff', fontSize: 13, fontWeight: 500, margin: 0 }}>{fmt(pSaldo)}</p>
+                <p style={{ fontSize: 11, color: pPerc >= 0 ? '#10b981' : '#ef4444', margin: 0 }}>
                   {pPerc >= 0 ? '+' : ''}{pPerc.toFixed(2)}%
                 </p>
               </div>
@@ -239,31 +286,36 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
         })}
       </div>
 
-      {/* Evolução mensal em barras */}
+      {/* Evolução mensal em barras — ONLY % */}
       {chartBars.length > 0 && (
-        <div className="bg-zinc-900 rounded-2xl p-5">
-          <p className="text-zinc-500 text-xs mb-4">Evolução mensal</p>
-          <div className="flex items-end gap-2" style={{ height: 120 }}>
+        <div style={{ background: '#18181b', borderRadius: 16, padding: 20, border: '1px solid rgba(255,255,255,0.04)' }}>
+          <p style={{ color: '#71717a', fontSize: 11, marginBottom: 16 }}>Evolução mensal (%)</p>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140 }}>
             {chartBars.map((bar, i) => {
-              const h = Math.max(8, (bar.value / maxChart) * 100);
+              const h = Math.max(12, (Math.abs(bar.perc) / maxPerc) * 100);
               const isLast = i === chartBars.length - 1;
+              const isPos = bar.perc >= 0;
               return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className={`text-[9px] font-medium ${bar.perc >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {bar.perc >= 0 ? '+' : ''}{bar.perc.toFixed(1)}%
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                  <span style={{ fontSize: 9, fontWeight: 600, color: isPos ? '#10b981' : '#ef4444' }}>
+                    {isPos ? '+' : ''}{bar.perc.toFixed(1)}%
                   </span>
                   <div
-                    className="w-full rounded-t-md transition-all duration-700"
                     style={{
+                      width: '100%',
+                      borderRadius: '4px 4px 2px 2px',
                       height: `${h}%`,
+                      minHeight: 8,
                       background: isLast
                         ? 'linear-gradient(to top, #10b981, #34d399)'
-                        : bar.perc >= 0
-                          ? 'rgba(16,185,129,0.2)'
-                          : 'rgba(239,68,68,0.2)',
+                        : isPos
+                          ? 'rgba(16,185,129,0.25)'
+                          : 'rgba(239,68,68,0.25)',
+                      transition: 'height 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isLast ? '0 0 12px rgba(16,185,129,0.3)' : 'none',
                     }}
                   />
-                  <span className={`text-[9px] ${isLast ? 'text-emerald-400 font-medium' : 'text-zinc-600'}`}>
+                  <span style={{ fontSize: 9, color: isLast ? '#10b981' : '#52525b', fontWeight: isLast ? 600 : 400 }}>
                     {bar.label}
                   </span>
                 </div>
@@ -272,6 +324,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           </div>
         </div>
       )}
+
+      {/* Pulsing Dot CSS Animation */}
+      <style>{`
+        @keyframes marketPulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+          50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+        }
+        .market-pulse-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #10b981;
+          display: inline-block;
+          animation: marketPulse 3s ease-in-out infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

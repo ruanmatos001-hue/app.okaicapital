@@ -8,24 +8,30 @@ const PLATAFORMAS = ['XP', 'Avenue', 'Ava', 'B3', 'Binance', 'Outro'];
 
 const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   const [carteiraId, setCarteiraId] = useState<string | null>(null);
+  const [carteira, setCarteira] = useState<any>(null);
   const [ativos, setAtivos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showEditFund, setShowEditFund] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [ops, setOps] = useState<any[]>([]);
   const [hist, setHist] = useState<any[]>([]);
-  const [newAtivo, setNewAtivo] = useState({ nome: '', ticker: '', tipo: 'RF', plataforma: 'XP', valor_atual: 0, percentual_carteira: 0 });
+  const [editHistId, setEditHistId] = useState<string | null>(null);
+  const [newAtivo, setNewAtivo] = useState({ nome: '', ticker: '', tipo: 'RF', plataforma: 'XP', valor_atual: 0, percentual_carteira: 0, moeda: 'BRL' });
   const [newOp, setNewOp] = useState({ tipo: 'compra', quantidade: 0, valor_unitario: 0, valor_total: 0, data_operacao: new Date().toISOString().split('T')[0], descricao: '' });
   const [newHist, setNewHist] = useState({ ano: new Date().getFullYear(), mes: new Date().getMonth() + 1, valor_inicio: 0, valor_fim: 0, rendimento_valor: 0, rendimento_percentual: 0 });
+  const [fundEdit, setFundEdit] = useState({ nome: '', descricao: '', rentabilidade_alvo_anual: 0, aporte_minimo: 0, liquidez: '', imagem_url: '' });
 
   useEffect(() => { loadAtivos(); }, [selectedFund]);
 
   const loadAtivos = async () => {
     setLoading(true);
-    const { data: carteira } = await supabase.from('carteiras').select('id').eq('tipo', selectedFund).single();
-    if (!carteira) { setLoading(false); return; }
-    setCarteiraId(carteira.id);
-    const { data } = await supabase.from('ativos').select('*').eq('carteira_id', carteira.id).eq('status', 'ativo').order('percentual_carteira', { ascending: false });
+    const { data: c } = await supabase.from('carteiras').select('*').eq('tipo', selectedFund).single();
+    if (!c) { setLoading(false); return; }
+    setCarteiraId(c.id);
+    setCarteira(c);
+    setFundEdit({ nome: c.nome || '', descricao: c.descricao || '', rentabilidade_alvo_anual: c.rentabilidade_alvo_anual || 0, aporte_minimo: c.aporte_minimo || 0, liquidez: c.liquidez || '', imagem_url: c.imagem_url || '' });
+    const { data } = await supabase.from('ativos').select('*').eq('carteira_id', c.id).eq('status', 'ativo').order('percentual_carteira', { ascending: false });
     setAtivos(data || []);
     setLoading(false);
   };
@@ -34,12 +40,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
     if (!carteiraId || !newAtivo.nome) return;
     const { error } = await supabase.from('ativos').insert([{ ...newAtivo, carteira_id: carteiraId }]);
     if (error) alert('Erro: ' + error.message);
-    else { setShowAdd(false); setNewAtivo({ nome: '', ticker: '', tipo: 'RF', plataforma: 'XP', valor_atual: 0, percentual_carteira: 0 }); loadAtivos(); }
-  };
-
-  const updateAtivo = async (id: string, updates: any) => {
-    await supabase.from('ativos').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
-    loadAtivos();
+    else { setShowAdd(false); setNewAtivo({ nome: '', ticker: '', tipo: 'RF', plataforma: 'XP', valor_atual: 0, percentual_carteira: 0, moeda: 'BRL' }); loadAtivos(); }
   };
 
   const deleteAtivo = async (id: string) => {
@@ -51,6 +52,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   const expandAtivo = async (ativo: any) => {
     if (expanded === ativo.id) { setExpanded(null); return; }
     setExpanded(ativo.id);
+    setEditHistId(null);
     const { data: opsData } = await supabase.from('operacoes_ativos').select('*').eq('ativo_id', ativo.id).order('data_operacao', { ascending: false });
     setOps(opsData || []);
     const { data: histData } = await supabase.from('historico_ativos_mensal').select('*').eq('ativo_id', ativo.id).order('ano', { ascending: false }).order('mes', { ascending: false });
@@ -70,12 +72,20 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
     const { error } = await supabase.from('historico_ativos_mensal').insert([{ ...newHist, rendimento_valor: rv, rendimento_percentual: rp, ativo_id: ativoId }]);
     if (error) alert('Erro: ' + error.message);
     else {
-      // Atualizar valor atual do ativo
       await supabase.from('ativos').update({ valor_atual: newHist.valor_fim, retorno_mes: rp, updated_at: new Date().toISOString() }).eq('id', ativoId);
       setNewHist({ ano: new Date().getFullYear(), mes: new Date().getMonth() + 1, valor_inicio: 0, valor_fim: 0, rendimento_valor: 0, rendimento_percentual: 0 });
       expandAtivo({ id: ativoId });
       loadAtivos();
     }
+  };
+
+  const updateHist = async (histItem: any) => {
+    const rv = histItem.valor_fim - histItem.valor_inicio;
+    const rp = histItem.valor_inicio > 0 ? (rv / histItem.valor_inicio) * 100 : 0;
+    await supabase.from('historico_ativos_mensal').update({ valor_inicio: histItem.valor_inicio, valor_fim: histItem.valor_fim, rendimento_valor: rv, rendimento_percentual: rp }).eq('id', histItem.id);
+    setEditHistId(null);
+    expandAtivo({ id: histItem.ativo_id });
+    loadAtivos();
   };
 
   const deleteOp = async (id: string, ativoId: string) => {
@@ -84,33 +94,57 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   };
 
   const deleteHist = async (id: string, ativoId: string) => {
+    if (!confirm('Excluir este registro?')) return;
     await supabase.from('historico_ativos_mensal').delete().eq('id', id);
     expandAtivo({ id: ativoId });
   };
 
-  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const saveFundEdit = async () => {
+    if (!carteiraId) return;
+    const { error } = await supabase.from('carteiras').update(fundEdit).eq('id', carteiraId);
+    if (error) alert('Erro: ' + error.message);
+    else { setShowEditFund(false); loadAtivos(); }
+  };
+
+  const fmt = (v: number, moeda?: string) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: moeda === 'USD' ? 'USD' : 'BRL' }).format(v);
   const totalFundo = ativos.reduce((a, c) => a + (c.valor_atual || 0), 0);
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-
-  const platColor = (p: string) => {
-    if (p === 'Avenue') return '#60a5fa';
-    if (p === 'Ava') return '#f87171';
-    return 'var(--ok-muted)';
-  };
 
   return (
     <div>
       <div className="admin-topbar">
         <div>
           <h1 className="admin-page-title">Ativos do Fundo</h1>
-          <div className="admin-page-sub">{selectedFund === 'grao' ? 'Grão' : 'Avane'} · {ativos.length} ativos · {fmt(totalFundo)}</div>
+          <div className="admin-page-sub">{carteira?.nome || selectedFund} · {ativos.length} ativos · {fmt(totalFundo)}</div>
         </div>
         <div className="admin-topbar-right">
+          <button className="admin-btn" onClick={() => setShowEditFund(true)}>Editar Fundo</button>
           <button className="admin-btn admin-btn-gold" onClick={() => setShowAdd(true)}>+ Adicionar Ativo</button>
         </div>
       </div>
 
-      {/* ADD MODAL */}
+      {/* EDIT FUND MODAL */}
+      {showEditFund && (
+        <div className="admin-modal-overlay" onClick={() => setShowEditFund(false)}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+            <h3>Editar Fundo — {carteira?.nome}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div className="admin-field"><label>Nome</label><input value={fundEdit.nome} onChange={e => setFundEdit({ ...fundEdit, nome: e.target.value })} /></div>
+              <div className="admin-field"><label>Liquidez</label><input value={fundEdit.liquidez} onChange={e => setFundEdit({ ...fundEdit, liquidez: e.target.value })} placeholder="D+30" /></div>
+              <div className="admin-field"><label>Target Anual (%)</label><input type="number" value={fundEdit.rentabilidade_alvo_anual} onChange={e => setFundEdit({ ...fundEdit, rentabilidade_alvo_anual: +e.target.value })} /></div>
+              <div className="admin-field"><label>Aporte Mínimo</label><input type="number" value={fundEdit.aporte_minimo} onChange={e => setFundEdit({ ...fundEdit, aporte_minimo: +e.target.value })} /></div>
+              <div className="admin-field" style={{ gridColumn: 'span 2' }}><label>Descrição</label><input value={fundEdit.descricao} onChange={e => setFundEdit({ ...fundEdit, descricao: e.target.value })} /></div>
+              <div className="admin-field" style={{ gridColumn: 'span 2' }}><label>URL da Imagem</label><input value={fundEdit.imagem_url} onChange={e => setFundEdit({ ...fundEdit, imagem_url: e.target.value })} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="admin-btn admin-btn-gold" style={{ flex: 1 }} onClick={saveFundEdit}>Salvar Alterações</button>
+              <button className="admin-btn" style={{ flex: 1 }} onClick={() => setShowEditFund(false)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD ASSET MODAL */}
       {showAdd && (
         <div className="admin-modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="admin-modal" onClick={e => e.stopPropagation()}>
@@ -128,10 +162,16 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                   {PLATAFORMAS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-              <div className="admin-field"><label>Valor Atual (R$)</label><input type="number" value={newAtivo.valor_atual} onChange={e => setNewAtivo({ ...newAtivo, valor_atual: +e.target.value })} /></div>
+              <div className="admin-field"><label>Moeda</label>
+                <select value={newAtivo.moeda} onChange={e => setNewAtivo({ ...newAtivo, moeda: e.target.value })}>
+                  <option value="BRL">BRL (R$)</option>
+                  <option value="USD">USD (US$)</option>
+                </select>
+              </div>
+              <div className="admin-field"><label>Valor Atual</label><input type="number" value={newAtivo.valor_atual} onChange={e => setNewAtivo({ ...newAtivo, valor_atual: +e.target.value })} /></div>
               <div className="admin-field"><label>% Carteira</label><input type="number" value={newAtivo.percentual_carteira} onChange={e => setNewAtivo({ ...newAtivo, percentual_carteira: +e.target.value })} /></div>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
               <button className="admin-btn admin-btn-gold" style={{ flex: 1 }} onClick={addAtivo}>Adicionar</button>
               <button className="admin-btn" style={{ flex: 1 }} onClick={() => setShowAdd(false)}>Cancelar</button>
             </div>
@@ -148,6 +188,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
             <thead>
               <tr>
                 <th>Ativo</th>
+                <th>Moeda</th>
                 <th>Plataforma</th>
                 <th>Valor Atual</th>
                 <th>% Carteira</th>
@@ -161,34 +202,39 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                 <React.Fragment key={a.id}>
                   <tr>
                     <td>
-                      <span className="ok-white" style={{ fontSize: 12 }}>{a.nome}</span>
-                      <span style={{ display: 'block', fontSize: 10, color: 'var(--ok-muted)' }}>{a.ticker} · {a.tipo}</span>
+                      <span className="ok-white" style={{ fontSize: 13, fontWeight: 500 }}>{a.nome}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--ok-muted)' }}>{a.ticker} · {a.tipo}</span>
                     </td>
-                    <td><span className="admin-asset-platform" style={{ color: platColor(a.plataforma), borderColor: platColor(a.plataforma) + '33' }}>{a.plataforma}</span></td>
-                    <td className="ok-white">{fmt(a.valor_atual || 0)}</td>
+                    <td>
+                      <span className="admin-badge" style={{ color: a.moeda === 'USD' ? 'var(--ok-blue)' : 'var(--ok-emerald)', borderColor: a.moeda === 'USD' ? 'rgba(96,165,250,0.2)' : 'rgba(16,185,129,0.2)', background: a.moeda === 'USD' ? 'rgba(96,165,250,0.06)' : 'rgba(16,185,129,0.06)' }}>
+                        {a.moeda || 'BRL'}
+                      </span>
+                    </td>
+                    <td><span className="admin-asset-platform">{a.plataforma}</span></td>
+                    <td className="ok-white" style={{ fontWeight: 500 }}>{fmt(a.valor_atual || 0, a.moeda)}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 50, height: 2, background: 'var(--ok-border)', position: 'relative' }}>
-                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(a.percentual_carteira || 0, 100)}%`, background: 'var(--ok-gold)' }} />
+                        <div style={{ width: 50, height: 3, background: 'rgba(255,255,255,0.04)', borderRadius: 2, position: 'relative' }}>
+                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min(a.percentual_carteira || 0, 100)}%`, background: 'var(--ok-emerald)', borderRadius: 2 }} />
                         </div>
-                        {a.percentual_carteira}%
+                        <span style={{ fontSize: 12 }}>{a.percentual_carteira}%</span>
                       </div>
                     </td>
                     <td className={a.retorno_mes >= 0 ? 'ok-up' : 'ok-down'}>{a.retorno_mes >= 0 ? '+' : ''}{(a.retorno_mes || 0).toFixed(2)}%</td>
-                    <td className="ok-muted" style={{ fontSize: 10 }}>{new Date(a.updated_at).toLocaleDateString('pt-BR')}</td>
-                    <td style={{ display: 'flex', gap: 8 }}>
-                      <button className="admin-btn" style={{ fontSize: 9, padding: '4px 8px' }} onClick={() => expandAtivo(a)}>{expanded === a.id ? '▲' : '▼'}</button>
-                      <button className="admin-btn admin-btn-red" style={{ fontSize: 9, padding: '4px 8px' }} onClick={() => deleteAtivo(a.id)}>✕</button>
+                    <td className="ok-muted" style={{ fontSize: 11 }}>{new Date(a.updated_at).toLocaleDateString('pt-BR')}</td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button className="admin-btn" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => expandAtivo(a)}>{expanded === a.id ? '▲' : '▼'}</button>
+                      <button className="admin-btn admin-btn-red" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => deleteAtivo(a.id)}>✕</button>
                     </td>
                   </tr>
 
                   {expanded === a.id && (
-                    <tr><td colSpan={7} style={{ padding: 0 }}>
+                    <tr><td colSpan={8} style={{ padding: 0 }}>
                       <div className="admin-expanded-row" style={{ padding: 24 }}>
                         <div className="admin-expanded-inner">
                           {/* OPERAÇÕES */}
-                          <div className="admin-card-title" style={{ marginBottom: 16 }}>Operações · {a.nome}</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+                          <div className="admin-card-title" style={{ marginBottom: 14 }}>Operações · {a.nome}</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 14 }}>
                             <div className="admin-field"><label>Tipo</label>
                               <select value={newOp.tipo} onChange={e => setNewOp({ ...newOp, tipo: e.target.value })}>
                                 <option value="compra">Compra</option><option value="venda">Venda</option><option value="dividendo">Dividendo</option><option value="juros">Juros</option>
@@ -201,7 +247,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                             <div className="admin-field"><label>Ação</label><button className="admin-btn admin-btn-gold" style={{ width: '100%' }} onClick={() => addOp(a.id)}>Lançar</button></div>
                           </div>
                           {ops.length > 0 && (
-                            <table className="admin-table" style={{ marginBottom: 24 }}>
+                            <table className="admin-table" style={{ marginBottom: 20 }}>
                               <thead><tr><th>Tipo</th><th>Qtd</th><th>Vlr Unit.</th><th>Total</th><th>Data</th><th></th></tr></thead>
                               <tbody>{ops.map(o => (
                                 <tr key={o.id}>
@@ -209,8 +255,8 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                                   <td>{o.quantidade}</td>
                                   <td>{fmt(o.valor_unitario)}</td>
                                   <td className="ok-white">{fmt(o.valor_total)}</td>
-                                  <td className="ok-muted" style={{ fontSize: 10 }}>{new Date(o.data_operacao).toLocaleDateString('pt-BR')}</td>
-                                  <td><button className="admin-btn admin-btn-red" style={{ fontSize: 9, padding: '4px 8px' }} onClick={() => deleteOp(o.id, a.id)}>✕</button></td>
+                                  <td className="ok-muted" style={{ fontSize: 11 }}>{new Date(o.data_operacao).toLocaleDateString('pt-BR')}</td>
+                                  <td><button className="admin-btn admin-btn-red" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => deleteOp(o.id, a.id)}>✕</button></td>
                                 </tr>
                               ))}</tbody>
                             </table>
@@ -218,13 +264,13 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
 
                           {/* HISTÓRICO MENSAL */}
                           <div className="admin-divider" />
-                          <div className="admin-card-title" style={{ marginBottom: 16 }}>Histórico Mensal · Valor e %</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+                          <div className="admin-card-title" style={{ marginBottom: 14 }}>Histórico Mensal · Valor e %</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 14 }}>
                             <div className="admin-field"><label>Ano</label><input type="number" value={newHist.ano} onChange={e => setNewHist({ ...newHist, ano: +e.target.value })} /></div>
                             <div className="admin-field"><label>Mês</label><input type="number" value={newHist.mes} onChange={e => setNewHist({ ...newHist, mes: +e.target.value })} /></div>
                             <div className="admin-field"><label>Vlr Início</label><input type="number" value={newHist.valor_inicio} onChange={e => { const vi = +e.target.value; setNewHist({ ...newHist, valor_inicio: vi, rendimento_valor: newHist.valor_fim - vi }); }} /></div>
                             <div className="admin-field"><label>Vlr Fim</label><input type="number" value={newHist.valor_fim} onChange={e => { const vf = +e.target.value; setNewHist({ ...newHist, valor_fim: vf, rendimento_valor: vf - newHist.valor_inicio }); }} /></div>
-                            <div className="admin-field"><label>Lucro</label><input type="number" value={newHist.rendimento_valor} readOnly style={{ color: newHist.rendimento_valor >= 0 ? 'var(--ok-green)' : 'var(--ok-red)' }} /></div>
+                            <div className="admin-field"><label>Lucro</label><input type="number" value={newHist.rendimento_valor} readOnly style={{ color: newHist.rendimento_valor >= 0 ? 'var(--ok-emerald)' : 'var(--ok-red)' }} /></div>
                             <div className="admin-field"><label>Ação</label><button className="admin-btn admin-btn-gold" style={{ width: '100%' }} onClick={() => addHist(a.id)}>Lançar Mês</button></div>
                           </div>
                           {hist.length > 0 && (
@@ -233,11 +279,27 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
                               <tbody>{hist.map(h => (
                                 <tr key={h.id}>
                                   <td className="ok-white">{months[(h.mes||1)-1]}/{h.ano}</td>
-                                  <td className="ok-muted">{fmt(h.valor_inicio)}</td>
-                                  <td className="ok-white">{fmt(h.valor_fim)}</td>
-                                  <td className={h.rendimento_valor >= 0 ? 'ok-up' : 'ok-down'}>{fmt(h.rendimento_valor)}</td>
-                                  <td className={h.rendimento_percentual >= 0 ? 'ok-up' : 'ok-down'}>{h.rendimento_percentual >= 0 ? '+' : ''}{h.rendimento_percentual?.toFixed(2)}%</td>
-                                  <td><button className="admin-btn admin-btn-red" style={{ fontSize: 9, padding: '4px 8px' }} onClick={() => deleteHist(h.id, a.id)}>✕</button></td>
+                                  {editHistId === h.id ? (
+                                    <>
+                                      <td><input type="number" style={{ width: 80, background: 'var(--ok-card-alt)', border: '1px solid var(--ok-border)', borderRadius: 6, color: '#fff', padding: '4px 6px', fontSize: 12 }} defaultValue={h.valor_inicio} onChange={e => h._editInicio = +e.target.value} /></td>
+                                      <td><input type="number" style={{ width: 80, background: 'var(--ok-card-alt)', border: '1px solid var(--ok-border)', borderRadius: 6, color: '#fff', padding: '4px 6px', fontSize: 12 }} defaultValue={h.valor_fim} onChange={e => h._editFim = +e.target.value} /></td>
+                                      <td colSpan={2}>
+                                        <button className="admin-btn admin-btn-gold" style={{ fontSize: 10, padding: '4px 10px', marginRight: 6 }} onClick={() => updateHist({ ...h, valor_inicio: h._editInicio ?? h.valor_inicio, valor_fim: h._editFim ?? h.valor_fim })}>Salvar</button>
+                                        <button className="admin-btn" style={{ fontSize: 10, padding: '4px 10px' }} onClick={() => setEditHistId(null)}>✕</button>
+                                      </td>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td className="ok-muted">{fmt(h.valor_inicio)}</td>
+                                      <td className="ok-white">{fmt(h.valor_fim)}</td>
+                                      <td className={h.rendimento_valor >= 0 ? 'ok-up' : 'ok-down'}>{fmt(h.rendimento_valor)}</td>
+                                      <td className={h.rendimento_percentual >= 0 ? 'ok-up' : 'ok-down'}>{h.rendimento_percentual >= 0 ? '+' : ''}{h.rendimento_percentual?.toFixed(2)}%</td>
+                                    </>
+                                  )}
+                                  <td style={{ display: 'flex', gap: 4 }}>
+                                    {editHistId !== h.id && <button className="admin-btn" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => setEditHistId(h.id)}>✎</button>}
+                                    <button className="admin-btn admin-btn-red" style={{ fontSize: 10, padding: '4px 8px' }} onClick={() => deleteHist(h.id, a.id)}>✕</button>
+                                  </td>
                                 </tr>
                               ))}</tbody>
                             </table>
@@ -253,7 +315,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
 
           {/* ALOCAÇÃO VISUAL */}
           <div className="admin-divider" />
-          <div className="admin-card-title" style={{ marginBottom: 16 }}>Alocação por Plataforma</div>
+          <div className="admin-card-title" style={{ marginBottom: 14 }}>Alocação por Plataforma</div>
           {(() => {
             const byPlat: Record<string, number> = {};
             ativos.forEach(a => { byPlat[a.plataforma] = (byPlat[a.plataforma] || 0) + (a.valor_atual || 0); });
@@ -262,7 +324,7 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
               return (
                 <div className="admin-alloc-item" key={plat}>
                   <div className="admin-alloc-name">{plat}</div>
-                  <div className="admin-alloc-bar-wrap"><div className="admin-alloc-bar" style={{ width: `${pct}%`, background: platColor(plat) }} /></div>
+                  <div className="admin-alloc-bar-wrap"><div className="admin-alloc-bar" style={{ width: `${pct}%` }} /></div>
                   <div className="admin-alloc-pct">{pct.toFixed(0)}%</div>
                   <div className="admin-alloc-val">{fmt(val)}</div>
                 </div>

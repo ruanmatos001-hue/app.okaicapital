@@ -23,8 +23,8 @@ const AdminSidebar: React.FC<Props> = ({ activeView, onViewChange }) => {
   return (
     <nav className="admin-sidebar">
       <div className="admin-logo">
-        <div className="admin-logo-mark">Okai</div>
-        <div className="admin-logo-sub">Capital · Admin</div>
+        <div className="admin-logo-mark">OKAI <span>CAPITAL</span></div>
+        <div className="admin-logo-sub">Gestão · Admin</div>
       </div>
       <div className="admin-nav">
         <div className="admin-nav-section">Gestão</div>
@@ -42,7 +42,7 @@ const AdminSidebar: React.FC<Props> = ({ activeView, onViewChange }) => {
       </div>
       <div className="admin-sidebar-bottom">
         <span className="admin-status-dot" />Mercado aberto
-        <div style={{ marginTop: 8, fontSize: 10 }}>{today}</div>
+        <div style={{ marginTop: 6, fontSize: 10 }}>{today}</div>
       </div>
     </nav>
   );

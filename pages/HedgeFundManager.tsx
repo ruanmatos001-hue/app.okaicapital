@@ -22,7 +22,7 @@ const HedgeFundManager: React.FC = () => {
   };
 
   return (
-    <div style={{ background: 'var(--ok-black)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--ok-bg)', minHeight: '100vh' }}>
       {/* SIDEBAR */}
       <AdminSidebar activeView={activeView} onViewChange={setActiveView} />
 
@@ -62,10 +62,10 @@ const HedgeFundManager: React.FC = () => {
             <div className="admin-card">
               <div className="admin-card-header">
                 <div className="admin-card-title">Gestão de Cotas</div>
-                <div className="admin-card-badge" style={{ color: 'var(--ok-gold)', borderColor: 'rgba(201,168,76,0.3)' }}>Sistema Ativo</div>
+                <div className="admin-card-badge" style={{ color: 'var(--ok-emerald)', borderColor: 'rgba(16,185,129,0.3)' }}>Sistema Ativo</div>
               </div>
               <p style={{ fontSize: 11, color: 'var(--ok-muted)', marginBottom: 20, lineHeight: 1.8 }}>
-                As cotas são calculadas automaticamente com base nos lançamentos de rendimento feitos na aba <strong style={{ color: 'var(--ok-gold)' }}>Investidores</strong>.
+                As cotas são calculadas automaticamente com base nos lançamentos de rendimento feitos na aba <strong style={{ color: 'var(--ok-emerald)' }}>Investidores</strong>.
                 <br />Cada vez que um rendimento mensal é registrado, o saldo do cliente é atualizado e a taxa de performance (15%) é cobrada automaticamente.
               </p>
               <button className="admin-btn admin-btn-gold" onClick={() => setActiveView('investidores')}>
