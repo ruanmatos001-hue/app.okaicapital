@@ -4,7 +4,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Okai Capital | Investimentos de Alta Performance</title>
+
+    <!-- SEO Primary -->
+    <title>Okai Capital | Fundos de Investimento de Alta Performance no Brasil</title>
+    <meta name="description" content="Okai Capital é uma gestora independente com R$ 2,4B+ sob gestão. Acesse fundos quantitativos, private equity e wealth management com estratégias exclusivas para investidores qualificados e profissionais.">
+    <meta name="keywords" content="okai capital, fundos de investimento, private equity brasil, gestão de patrimônio, wealth management, fundo quantitativo, asset management, investimentos alta performance, fundo de investimento sp, faria lima, investidor qualificado, family office">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Okai Capital Gestora de Recursos">
+    <meta name="language" content="pt-BR">
+    <meta name="geo.region" content="BR-SP">
+    <meta name="geo.placename" content="São Paulo">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://okaicapital.com.br/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://okaicapital.com.br/">
+    <meta property="og:title" content="Okai Capital | Fundos de Investimento de Alta Performance">
+    <meta property="og:description" content="Gestora independente com R$ 2,4B+ sob gestão. Acesse fundos quantitativos, private equity e estratégias de wealth management exclusivas para famílias e investidores institucionais.">
+    <meta property="og:image" content="https://okaicapital.com.br/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Okai Capital - Gestora de Fundos de Investimento">
+    <meta property="og:locale" content="pt_BR">
+    <meta property="og:site_name" content="Okai Capital">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@okaicapital">
+    <meta name="twitter:title" content="Okai Capital | Fundos de Investimento de Alta Performance">
+    <meta name="twitter:description" content="R$ 2,4B+ sob gestão. Estratégias exclusivas de investimento: fundos quantitativos, private equity e wealth management.">
+    <meta name="twitter:image" content="https://okaicapital.com.br/og-image.jpg">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta name="theme-color" content="#00c795">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FinancialService",
+      "name": "Okai Capital",
+      "alternateName": "Okai Capital Gestora de Recursos",
+      "description": "Gestora independente especializada em fundos de investimento quantitativos, private equity e wealth management para investidores qualificados e profissionais no Brasil.",
+      "url": "https://okaicapital.com.br",
+      "logo": "https://okaicapital.com.br/logo.png",
+      "image": "https://okaicapital.com.br/og-image.jpg",
+      "telephone": "+55-11-4000-0000",
+      "email": "ri@okaicapital.com.br",
+      "foundingDate": "2012",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Avenida Brigadeiro Faria Lima",
+        "addressLocality": "São Paulo",
+        "addressRegion": "SP",
+        "postalCode": "04538-000",
+        "addressCountry": "BR"
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "Brasil"
+      },
+      "serviceType": [
+        "Fundos de Investimento",
+        "Private Equity",
+        "Wealth Management",
+        "Asset Management",
+        "Family Office",
+        "Gestão Quantitativa"
+      ],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Veículos de Investimento",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Okai Grão FIA",
+              "description": "Fundo quantitativo focado em derivativos agrícolas e commodities macro com estratégia long biased."
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Okai Avane FIP",
+              "description": "Fundo de Investimento em Participações voltado a ativos imobiliários triple-A em private equity."
+            }
+          }
+        ]
+      },
+      "sameAs": [
+        "https://www.linkedin.com/company/okaicapital",
+        "https://www.instagram.com/okaicapital"
+      ]
+    }
+    </script>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -24,6 +125,20 @@
               fontFamily: {
                 "display": ["Inter", "sans-serif"]
               },
+              keyframes: {
+                fadeInUp: {
+                  '0%': { opacity: '0', transform: 'translateY(24px)' },
+                  '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                fadeIn: {
+                  '0%': { opacity: '0' },
+                  '100%': { opacity: '1' },
+                },
+              },
+              animation: {
+                'fade-in-up': 'fadeInUp 0.7s ease forwards',
+                'fade-in': 'fadeIn 0.5s ease forwards',
+              },
             },
           },
         }
@@ -42,12 +157,46 @@
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
+        .glass-strong {
+            background: rgba(10, 15, 14, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
         .hero-gradient {
             background: radial-gradient(circle at 50% 50%, rgba(0, 199, 149, 0.15) 0%, rgba(10, 15, 14, 1) 100%);
+        }
+        .glow-primary {
+            box-shadow: 0 0 40px rgba(0, 199, 149, 0.15);
+        }
+        .glow-primary-sm {
+            box-shadow: 0 0 20px rgba(0, 199, 149, 0.1);
         }
         .font-fill {
             font-variation-settings: 'FILL' 1;
         }
+        .text-gradient {
+            background: linear-gradient(135deg, #00c795 0%, #a7f3d0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .border-gradient {
+            border-image: linear-gradient(135deg, rgba(0,199,149,0.4), rgba(0,199,149,0.05)) 1;
+        }
+        .section-divider {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+            height: 1px;
+            width: 100%;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        html { scroll-behavior: smooth; }
     </style>
 <script type="importmap">
 {
