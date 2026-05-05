@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationTab } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, UsuarioCarteira } from '../lib/supabase';
-import { calcularSaldoReal, calcularSaldoTotalUsuario, SaldoCalculado, getUsdBrlRate, toBRL } from '../lib/calcSaldo';
+import { calcularSaldoReal, calcularSaldoTotalUsuario, SaldoCalculado } from '../lib/calcSaldo';
 
 interface DashboardProps {
   onTabChange: (tab: NavigationTab) => void;
@@ -15,7 +15,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   const [rentData, setRentData] = useState<any[]>([]);
   const [saldoData, setSaldoData] = useState<SaldoCalculado>({ saldo: 0, totalAportado: 0, totalRetirado: 0, lucroRendimentos: 0, lucroTotal: 0, percentualTotal: 0 });
   const [saldosPorCarteira, setSaldosPorCarteira] = useState<Record<string, SaldoCalculado>>({});
-  const [estimatedResult, setEstimatedResult] = useState<{ valor: number; percentual: number; dataInicio?: string; dataFim?: string } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -39,22 +38,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
         }
         setSaldosPorCarteira(byCarteira);
 
-        // Fetch estimated result from usuario_carteiras rendimento_estimado
-        let estTotal = 0;
-        let hasEst = false;
-        let estDi = '';
-        let estDf = '';
-        data.forEach((p: any) => {
-          if (p.rendimento_estimado_ativo && p.rendimento_estimado_valor) {
-            estTotal += p.rendimento_estimado_valor;
-            hasEst = true;
-            if (p.rendimento_estimado_data_inicio) estDi = p.rendimento_estimado_data_inicio;
-            if (p.rendimento_estimado_data_fim) estDf = p.rendimento_estimado_data_fim;
-          }
-        });
-        if (hasEst && total.totalAportado > 0) {
-          setEstimatedResult({ valor: estTotal, percentual: (estTotal / total.totalAportado) * 100, dataInicio: estDi, dataFim: estDf });
-        }
       }
 
       const { data: rent } = await supabase
@@ -71,24 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     load();
   }, [user]);
 
-  // Estimated yield bonus (progressive interpolation)
-  const calcBonus = () => {
-    let bonus = 0;
-    portfolios.forEach((p: any) => {
-      if (p.rendimento_estimado_ativo && p.rendimento_estimado_data_inicio && p.rendimento_estimado_data_fim) {
-        const ini = new Date(p.rendimento_estimado_data_inicio + 'T00:00:00').getTime();
-        const fim = new Date(p.rendimento_estimado_data_fim + 'T23:59:59').getTime();
-        const now = Date.now();
-        if (now >= ini && now <= fim) {
-          bonus += (p.rendimento_estimado_valor || 0) * Math.min((now - ini) / (fim - ini), 1);
-        } else if (now > fim) bonus += (p.rendimento_estimado_valor || 0);
-      }
-    });
-    return bonus;
-  };
-
-  const bonus = calcBonus();
-  const saldo = saldoData.saldo + bonus;
+  const saldo = saldoData.saldo;
   const aportado = saldoData.totalAportado;
   const retirado = saldoData.totalRetirado;
   const lucro = saldoData.lucroTotal;
@@ -172,9 +138,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           </span>
           <span style={{ color: '#52525b', fontSize: 11 }}>lucro acumulado</span>
         </div>
-        {bonus > 0 && (
-          <p style={{ color: 'rgba(16,185,129,0.5)', fontSize: 10, marginTop: 8 }}>● Rendimento estimado em progresso</p>
-        )}
       </div>
 
       {/* Rentabilidade Pills */}
@@ -199,32 +162,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
         </div>
       </div>
 
-      {/* Resultado Estimado (visible to client) */}
-      {estimatedResult && (
-        <div style={{ 
-          background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02))', 
-          borderRadius: 14, 
-          padding: '16px 20px', 
-          marginBottom: 12, 
-          border: '1px solid rgba(16,185,129,0.12)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div>
-            <p style={{ color: '#71717a', fontSize: 10, margin: '0 0 4px', letterSpacing: '0.05em', textTransform: 'uppercase' as const }}>Resultado Estimado do Mês</p>
-            <p style={{ color: '#10b981', fontSize: 11, margin: 0 }}>
-              {estimatedResult.dataInicio && estimatedResult.dataFim
-                ? `${new Date(estimatedResult.dataInicio + 'T12:00:00').toLocaleDateString('pt-BR')} → ${new Date(estimatedResult.dataFim + 'T12:00:00').toLocaleDateString('pt-BR')}`
-                : 'Projeção baseada na operação atual do fundo'}
-            </p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ color: '#10b981', fontSize: 18, fontWeight: 700, margin: '0 0 2px' }}>{fmt(estimatedResult.valor)}</p>
-            <p style={{ color: '#10b981', fontSize: 11, margin: 0, opacity: 0.7 }}>≈ {estimatedResult.percentual.toFixed(1)}%</p>
-          </div>
-        </div>
-      )}
 
       {/* Resumo */}
       <div style={{ background: '#18181b', borderRadius: 16, padding: 20, marginBottom: 12, border: '1px solid rgba(255,255,255,0.04)' }}>

@@ -2,10 +2,14 @@ import React, { useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
+// Configure o link do especialista aqui (WhatsApp, Calendly, email, etc.)
+const ESPECIALISTA_URL = 'https://wa.me/5511XXXXXXXXX';
+
 const Profile: React.FC = () => {
   const { signOut, profile, user, refreshProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [showResgate, setShowResgate] = useState(false);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !user) {
@@ -47,6 +51,7 @@ const Profile: React.FC = () => {
   };
 
   return (
+    <>
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
       {/* Page Header */}
       <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -169,8 +174,22 @@ const Profile: React.FC = () => {
         </div>
       </div>
       
+      {/* Resgatar */}
+      <button
+        onClick={() => setShowResgate(true)}
+        style={{
+          width: '100%', padding: '16px 20px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)', borderRadius: 12,
+          color: '#10b981', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.15em',
+          cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center' as const, marginBottom: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+        }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>payments</span>
+        Resgatar Investimento
+      </button>
+
       {/* Logout */}
-      <button 
+      <button
         onClick={signOut}
         style={{ 
           width: '100%', padding: '16px 20px', background: '#18181b', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 12,
@@ -181,6 +200,52 @@ const Profile: React.FC = () => {
         Encerrar Sessão Segura
       </button>
     </div>
+
+    {/* ── Resgate Modal ───────────────────────────────────────────── */}
+    {showResgate && (
+      <div
+        onClick={() => setShowResgate(false)}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ background: '#111113', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '36px 32px', maxWidth: 420, width: '100%', textAlign: 'center' as const }}
+        >
+          {/* Icon */}
+          <div style={{ width: 68, height: 68, background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.14)', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 30, color: '#10b981' }}>hourglass_top</span>
+          </div>
+
+          <span style={{ color: '#10b981', fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase' as const, display: 'block', marginBottom: 10 }}>
+            Em Breve
+          </span>
+          <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, margin: '0 0 12px', lineHeight: 1.2 }}>
+            Resgate em implantação
+          </h2>
+          <p style={{ color: '#71717a', fontSize: 13, lineHeight: 1.65, margin: '0 0 28px' }}>
+            A funcionalidade de resgate online está em desenvolvimento. Para solicitações imediatas, fale diretamente com seu especialista dedicado.
+          </p>
+
+          <a
+            href={ESPECIALISTA_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '14px 20px', background: '#10b981', borderRadius: 12, color: '#000', fontWeight: 700, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.15em', cursor: 'pointer', textDecoration: 'none', marginBottom: 10, boxSizing: 'border-box' as const }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>support_agent</span>
+            Falar com Especialista
+          </a>
+
+          <button
+            onClick={() => setShowResgate(false)}
+            style={{ width: '100%', padding: '12px 20px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', color: '#71717a', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.1em', borderRadius: 12, cursor: 'pointer' }}
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 
