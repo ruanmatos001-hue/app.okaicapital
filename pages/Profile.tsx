@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
 // Configure o link do especialista aqui (WhatsApp, Calendly, email, etc.)
-const ESPECIALISTA_URL = 'https://wa.me/5511XXXXXXXXX';
+const ESPECIALISTA_URL = 'https://wa.me/5592988098642';
 
 const Profile: React.FC = () => {
   const { signOut, profile, user, refreshProfile } = useAuth();

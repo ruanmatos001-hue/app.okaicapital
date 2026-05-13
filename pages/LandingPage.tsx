@@ -6,9 +6,9 @@ interface LandingPageProps {
 }
 
 const STATS = [
-  { label: 'Patrimônio Administrado', value: 'R$ 2,4B+', icon: 'account_balance' },
+  { label: 'Patrimônio Administrado', value: 'R$1M+', icon: 'account_balance' },
   { label: 'Famílias Atendidas', value: '450+', icon: 'real_estate_agent' },
-  { label: 'Alpha Gerado (12m)', value: '+8,4%', icon: 'show_chart' },
+  { label: 'Alpha Gerado (12m)', value: '+12,4%', icon: 'show_chart' },
   { label: 'Track Record', value: '12 Anos', icon: 'history' },
 ];
 
@@ -91,7 +91,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Qual o valor mínimo de investimento na Okai Capital?',
-    a: 'O Fundo Grão possui ticket mínimo de R$ 50.000 para ingressantes. Estratégias de wealth management e family office são estruturadas de forma personalizada, com requisitos de entrada conforme complexidade do mandato.',
+    a: 'O Fundo Grão possui ticket mínimo de R$ 250 para ingressantes. Estratégias de wealth management e family office são estruturadas de forma personalizada, com requisitos de entrada conforme complexidade do mandato.',
   },
   {
     q: 'A Okai Capital é regulamentada pela CVM e ANBIMA?',
@@ -249,7 +249,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onCadastro }) => {
                   A <strong className="text-white font-semibold">Okai Capital</strong> é uma gestora independente especializada em fundos quantitativos, private equity e wealth management — estratégias antes restritas a grandes fortunas, agora acessíveis a investidores qualificados.
                 </p>
                 <p className="text-slate-500 text-sm font-light leading-relaxed mb-12 max-w-xl">
-                  R$ 2,4 bilhões sob gestão. 12 anos de track record. Regulamentada pela CVM e ANBIMA.
+                  R$ 1M+ sob gestão. 12 anos de track record. Regulamentada pela CVM e ANBIMA.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -401,7 +401,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onCadastro }) => {
                         <p className="text-slate-400 text-sm">Long Biased — Commodities Macro</p>
                       </div>
                       <div className="text-right">
-                        <div className="text-3xl font-light text-primary">+18,2%</div>
+                        <div className="text-3xl font-light text-primary">+48,4%</div>
                         <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mt-1">Rent. 12 meses</div>
                       </div>
                     </div>
@@ -413,9 +413,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onCadastro }) => {
                     <div className="grid grid-cols-2 gap-5 mb-2">
                       {[
                         ['Volatilidade (Alvo)', '10% - 12% a.a.'],
-                        ['Liquidez', 'D+30'],
+                        ['Liquidez', 'D+60'],
                         ['Benchmark', 'CDI + 5% a.a.'],
-                        ['Aporte Mínimo', 'R$ 50.000'],
+                        ['Aporte Mínimo', 'R$ 250'],
                       ].map(([label, value]) => (
                         <div key={label}>
                           <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">{label}</span>
@@ -658,7 +658,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onCadastro }) => {
             <ul className="space-y-3 text-sm text-slate-400 font-light">
               <li>São Paulo, SP – Faria Lima</li>
               <li>(11) 4000-0000</li>
-              <li>ri@okaicapital.com.br</li>
+              <li>okaicapital@gmail.com</li>
             </ul>
             <h4 className="text-white text-[10px] uppercase font-bold tracking-widest mt-8 mb-4">Institucional</h4>
             <ul className="space-y-3 text-sm text-slate-400 font-light">

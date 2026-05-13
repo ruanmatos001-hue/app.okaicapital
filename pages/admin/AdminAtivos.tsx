@@ -5,7 +5,7 @@ import { getUsdBrlRate, toBRL } from '../../lib/calcSaldo';
 interface Props { selectedFund: string; }
 
 const TIPOS = ['RF', 'FII', 'ETF', 'Ações', 'Opções', 'Forex', 'Crypto', 'Internacional', 'Outro'];
-const PLATAFORMAS = ['XP', 'Avenue', 'Ava', 'B3', 'Binance', 'Outro'];
+const PLATAFORMAS = ['XP', 'Avenue', 'Ava', 'B3', 'Binance', 'Pepperstone', 'Outro'];
 
 // ── Classificação por categoria ────────────────────────────────
 const CATEGORIA = (tipo: string): 'trading' | 'rv' | 'rf' | 'outro' => {
@@ -260,6 +260,12 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
   const valorBRL   = (a: any) => toBRL(a.valor_atual || 0, a.moeda || 'BRL', cotacao);
   const months     = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
+  // Retorno consolidado do mês (ponderado pelo valor alocado)
+  const retornoMesBRL = ativos.reduce((sum, a) => sum + valorBRL(a) * ((a.retorno_mes || 0) / 100), 0);
+  const retornoMesPct = totalFundo > 0
+    ? ativos.reduce((sum, a) => sum + valorBRL(a) * (a.retorno_mes || 0), 0) / totalFundo
+    : 0;
+
   // ── Filtragem e agrupamento ────────────────────────────────────
   const filteredAtivos = viewFilter === 'all'
     ? ativos
@@ -333,22 +339,23 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
         {/* ── Mini ops (só aparece quando não está expandido e tem ops) ── */}
         {miniOps.length > 0 && expanded !== a.id && (
           <tr style={{ background: 'rgba(0,0,0,0.18)' }}>
-            <td colSpan={8} style={{ padding: '4px 16px 8px 28px' }}>
+            <td colSpan={8} style={{ padding: '5px 16px 16px 28px' }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, alignItems: 'center' }}>
                 <span style={{ fontSize: 9, color: 'var(--ok-muted)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginRight: 2 }}>
                   ops recentes:
                 </span>
                 {miniOps.slice(0, 3).map(op => {
                   const { target, stop } = parseOpMeta(op.descricao || '');
-                  const isCompra = op.tipo === 'compra';
                   return (
                     <div key={op.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
+                      display: 'flex', alignItems: 'center', gap: 6,
                       background: 'rgba(255,255,255,0.03)',
                       border: '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 4, padding: '3px 8px', fontSize: 10,
+                      borderRadius: 4, padding: '3px 9px', fontSize: 10,
                     }}>
-                      <span style={{ color: isCompra ? '#10b981' : '#ef4444', fontWeight: 700, fontSize: 9, textTransform: 'uppercase' as const }}>
+                      {/* indicador em andamento */}
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
+                      <span style={{ color: 'var(--ok-muted)', fontWeight: 600, fontSize: 9, textTransform: 'uppercase' as const }}>
                         {op.tipo}
                       </span>
                       {op.quantidade > 0 && <span style={{ color: 'var(--ok-muted)' }}>{op.quantidade}x</span>}
@@ -767,6 +774,64 @@ const AdminAtivos: React.FC<Props> = ({ selectedFund }) => {
               );
             });
           })()}
+
+          {/* ── Retorno do Mês ── */}
+          <div className="admin-divider" />
+          <div className="admin-card-title" style={{ marginBottom: 14 }}>Retorno do Mês · Consolidado</div>
+
+          {/* Resumo geral */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            {[
+              {
+                label: 'Retorno Ponderado',
+                value: `${retornoMesPct >= 0 ? '+' : ''}${retornoMesPct.toFixed(2)}%`,
+                sub: 'vs. carteira total',
+                color: retornoMesPct >= 0 ? 'var(--ok-emerald)' : 'var(--ok-red)',
+              },
+              {
+                label: 'Ganho Estimado',
+                value: `${retornoMesBRL >= 0 ? '+' : ''}${fmtBRL(retornoMesBRL)}`,
+                sub: 'sobre valor atual',
+                color: retornoMesBRL >= 0 ? 'var(--ok-emerald)' : 'var(--ok-red)',
+              },
+              {
+                label: 'Ativos Positivos',
+                value: `${ativos.filter(a => (a.retorno_mes || 0) > 0).length} / ${ativos.length}`,
+                sub: 'com retorno > 0%',
+                color: '#60a5fa',
+              },
+            ].map((s, i) => (
+              <div key={i} style={{ background: 'var(--ok-card-alt)', borderRadius: 10, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: 9, color: 'var(--ok-muted)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: s.color, marginBottom: 3 }}>{s.value}</div>
+                <div style={{ fontSize: 9, color: 'var(--ok-muted)' }}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Por ativo */}
+          {ativos.filter(a => a.retorno_mes !== null && a.retorno_mes !== undefined).map(a => {
+            const brl = valorBRL(a) * ((a.retorno_mes || 0) / 100);
+            const pct = a.retorno_mes || 0;
+            const barW = Math.min(Math.abs(pct) * 8, 100);
+            return (
+              <div className="admin-alloc-item" key={`ret-${a.id}`}>
+                <div className="admin-alloc-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>{a.nome}</span>
+                  {a.ticker && <span style={{ fontSize: 9, color: 'var(--ok-muted)' }}>{a.ticker}</span>}
+                </div>
+                <div className="admin-alloc-bar-wrap">
+                  <div className="admin-alloc-bar" style={{ width: `${barW}%`, background: pct >= 0 ? 'var(--ok-emerald)' : 'var(--ok-red)' }} />
+                </div>
+                <div className="admin-alloc-pct" style={{ color: pct >= 0 ? 'var(--ok-emerald)' : 'var(--ok-red)' }}>
+                  {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                </div>
+                <div className="admin-alloc-val" style={{ color: brl >= 0 ? 'var(--ok-emerald)' : 'var(--ok-red)' }}>
+                  {brl >= 0 ? '+' : ''}{fmtBRL(brl)}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

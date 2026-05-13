@@ -1,6 +1,6 @@
 import React from 'react';
 
-type AdminView = 'overview' | 'ativos' | 'cotas' | 'investidores' | 'cliente';
+type AdminView = 'overview' | 'ativos' | 'cotas' | 'investidores' | 'cliente' | 'painel';
 
 interface Props {
   activeView: AdminView;
@@ -12,6 +12,7 @@ const AdminSidebar: React.FC<Props> = ({ activeView, onViewChange }) => {
     { label: 'Visão Geral', view: 'overview' },
     { label: 'Ativos', view: 'ativos' },
     { label: 'Atualizar Cotas', view: 'cotas' },
+    { label: 'Painel Ao Vivo', view: 'painel' },
   ];
   const clientItems: { label: string; view: AdminView }[] = [
     { label: 'Investidores', view: 'investidores' },

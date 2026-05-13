@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 // ── Configuração PIX ────────────────────────────────────────────────────────
 // Preencha os dados abaixo para o sistema gerar o QR code automaticamente.
 const PIX_CONFIG = {
-  chave: 'PREENCHA_SUA_CHAVE_PIX_AQUI', // CPF, CNPJ, e-mail, telefone ou EVP
+  chave: '56823608000170',               // CNPJ (somente dígitos, sem pontuação)
   nome: 'OKAI CAPITAL GESTORA',          // Máx 25 caracteres
   cidade: 'SAO PAULO',                   // Máx 15 caracteres
 };

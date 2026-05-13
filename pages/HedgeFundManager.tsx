@@ -5,6 +5,7 @@ import AdminOverview from './admin/AdminOverview';
 import AdminAtivos from './admin/AdminAtivos';
 import AdminInvestors from './admin/AdminInvestors';
 import AdminClientView from './admin/AdminClientView';
+import AdminPainel from './admin/AdminPainel';
 
 const HedgeFundManager: React.FC = () => {
   const [activeView, setActiveView] = useState<AdminView>('overview');
@@ -84,10 +85,14 @@ const HedgeFundManager: React.FC = () => {
         )}
 
         {activeView === 'cliente' && (
-          <AdminClientView 
-            client={selectedClient} 
-            onBack={() => setActiveView('investidores')} 
+          <AdminClientView
+            client={selectedClient}
+            onBack={() => setActiveView('investidores')}
           />
+        )}
+
+        {activeView === 'painel' && (
+          <AdminPainel selectedFund={selectedFund} />
         )}
       </main>
     </div>
